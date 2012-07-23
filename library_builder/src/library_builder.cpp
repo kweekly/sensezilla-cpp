@@ -78,20 +78,24 @@ void LibraryBuilder::start() {
 		return;
 	}
 
+#define NUM_STEPS 5
 	TimeSeries * inputRaw = inputTS->copy();
 
 	TRANS_DETECTOR.setParams(0.1,60);
+	log_prog(1,NUM_STEPS,"Detect Transitions","unkwn");
 	EventSeries<TransitionEvent> * es = TRANS_DETECTOR.detect(inputTS);
 
 	log_i("%d Transitions found\n",es->events.size());
 
 	// STEP Ia : SEPARATE INTO CHUNKS
+	log_prog(2,5,"Separate Time Chunks","unkwn");
 	vector<TimeSeries *> chunks;
 	for ( size_t c = 0; c < es->events.size() - 1; c++) {
 		chunks.push_back(inputTS->selectTime(es->events[c].t,es->events[c+1].t));
 	}
 
 	// STEP Ib : ORDER CHUNKS BY SIZE
+	log_prog(3,5,"Order by Size","unkwn");
 	sort(chunks.begin(), chunks.end(), cmp_by_timeseries_length);
 
 	// STEP Ic : CATAGORIZE CHUNKS BY MEANS
@@ -105,6 +109,7 @@ void LibraryBuilder::start() {
 	current_means.push_back(chunks[0]->mean());
 
 	for ( int c = 1; c < chunks.size(); c++ ) {
+		log_prog(4,5,"Categorize by Means","%.2f%%",(100.0*c/chunks.size()));
 		double chmean = chunks[c]->mean();
 
 		// find the "closest" bin
@@ -152,6 +157,7 @@ void LibraryBuilder::start() {
 
 		// write the output
 		for(int c = 0; c < chunk_bins.size(); c++) {
+			log_prog(5,5,"Write out chunks","%.2f%%",100.0*c/chunk_bins.size());
 			for ( int d = 0; d < chunk_bins[c]->size(); d++ ) {
 				sprintf(buf, "%s/%d.%d.csv", outdir_fname.c_str(), c, d);
 				TimeSeries *tmp = inputRaw->selectTime(chunk_bins[c]->at(d)->t.front(), chunk_bins[c]->at(d)->t.back());

@@ -30,3 +30,13 @@ void log_e( const char* format,...) {
     va_end( args );
     fprintf( stderr, "\n" );
 }
+
+void log_prog(int steps_done, int steps_complete, char * step_name, const char * step_prog, ...) {
+	va_list args;
+	fprintf(stdout,"PROGRESS STEP %d OF %d \"%s\" ",steps_done,steps_complete,step_name);
+	va_start( args, step_prog );
+	vfprintf(stdout,step_prog,args);
+	va_end(args);
+	fprintf(stdout," DONE\n");
+}
+

@@ -28,7 +28,7 @@
 <stringAttribute key="org.eclipse.cdt.launch.FORMAT" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;no&quot;?&gt;&lt;contentList/&gt;"/>
 <stringAttribute key="org.eclipse.cdt.launch.GLOBAL_VARIABLES" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;no&quot;?&gt;&#10;&lt;globalVariableList/&gt;&#10;"/>
 <stringAttribute key="org.eclipse.cdt.launch.MEMORY_BLOCKS" value="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;no&quot;?&gt;&#10;&lt;memoryBlockExpressionList/&gt;&#10;"/>
-<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_ARGUMENTS" value="-csvin ${workspace_loc}/Dell_Monitor_8e3.csv -invr 1000 -intr 1000 -outdir ${workspace_loc}/output_testing -outprec 13"/>
+<stringAttribute key="org.eclipse.cdt.launch.PROGRAM_ARGUMENTS" value="-csvin ${workspace_loc}/Dell_Monitor_8e3.csv -outdir ${workspace_loc}/output_testing -outprec 13"/>
 <stringAttribute key="org.eclipse.cdt.launch.PROGRAM_NAME" value="Release/library_builder"/>
 <stringAttribute key="org.eclipse.cdt.launch.PROJECT_ATTR" value="library_builder"/>
 <stringAttribute key="org.eclipse.cdt.launch.PROJECT_BUILD_CONFIG_ID_ATTR" value="cdt.managedbuild.config.gnu.exe.release.636886037"/>

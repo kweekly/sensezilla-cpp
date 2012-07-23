@@ -17,10 +17,6 @@ public:
 	bool processCLOption(string opt, string val);
 
 private:
-	double in_time_ratio;
-	double in_value_ratio;
-	double out_time_ratio;
-	double out_value_ratio;
 	int outprec;
 
 	string csvin_fname;
@@ -30,7 +26,6 @@ private:
 };
 
 LibraryBuilder::LibraryBuilder() {
-	in_time_ratio = in_value_ratio = out_time_ratio = out_value_ratio = 1;
 	csvin_fname.clear();
 	outdir_fname.clear();
 	use_csv = false;
@@ -44,19 +39,8 @@ bool LibraryBuilder::processCLOption(string opt, string val) {
 		use_csv = true;
 		csvin_fname = val;;
 		return true;
-	} else if ( opt == "intr") {
-		in_time_ratio = atof(val.c_str());
-		return true;
-	}  else if ( opt == "invr") {
-		in_value_ratio = atof(val.c_str());
-		return true;
-	} else if ( opt == "outtr") {
-		out_time_ratio = atof(val.c_str());
-		return true;
-	}  else if ( opt == "outvr") {
-		out_value_ratio = atof(val.c_str());
-		return true;
-	} else if ( opt == "outprec" ) {
+	}
+	else if ( opt == "outprec" ) {
 		outprec = atoi(val.c_str());
 		return true;
 	} else if ( opt == "outdir") {
@@ -73,30 +57,13 @@ void LibraryBuilder::printHelp() {
 			"Kevin Weekly\n"
 			"\n"
 			"\t-csvin  : Input CSV file\n"
-			"\t-intr   : Input time ratio\n"
-			"\t-invr   : Input value ratio\n"
 			"\t-outdir : Output directory\n"
-			"\t-outtr  : Output time ratio\n"
-			"\t-outvr  : Output value ratio\n"
 			"\t-outprec :Output precision\n"
 			);
 	AbstractProgram::printHelp();
 }
 
-MinFilter MIN_FILTER;
-SpikeFilter SPK_FILTER;
-const double windowSizes[] = {2,4,6,8,10,12,14,16,18,20,22,24,26,28,30};
-const double windowRatio = 10;
-
 TransitionDetector TRANS_DETECTOR;
-
-bool spk_filter_configure(AbstractFilter * f, int iter) {
-	if ( iter < sizeof(windowSizes)/sizeof(double) ) {
-		((SpikeFilter *)f)->setWindowSize(windowSizes[iter] * windowRatio);
-		return true;
-	}
-	return false;
-}
 
 bool cmp_by_timeseries_length(TimeSeries * ts1, TimeSeries * ts2) {
 	return (ts1->t.back() - ts1->t.front()) > (ts2->t.back() - ts2->t.front());
@@ -111,18 +78,7 @@ void LibraryBuilder::start() {
 		return;
 	}
 
-
-	for ( size_t c = 0; c < inputTS->t.size(); c++ )
-		inputTS->t[c] /= in_time_ratio;
-
-	*inputTS /= in_value_ratio;
-
 	TimeSeries * inputRaw = inputTS->copy();
-
-	MIN_FILTER.setWindowSize(60);
-	SPK_FILTER.setWindowInterval(1);
-	inputTS = MIN_FILTER.filter(inputTS);
-	inputTS = SPK_FILTER.filter_iterate(inputTS, &spk_filter_configure);
 
 	TRANS_DETECTOR.setParams(0.1,60);
 	EventSeries<TransitionEvent> * es = TRANS_DETECTOR.detect(inputTS);
@@ -137,12 +93,6 @@ void LibraryBuilder::start() {
 
 	// STEP Ib : ORDER CHUNKS BY SIZE
 	sort(chunks.begin(), chunks.end(), cmp_by_timeseries_length);
-
-	/*
-	for ( size_t c = 0; c < es->events.size() - 1; c++ ){
-		printf("%.1f %.1f\n",chunks[c]->t.front()-inputTS->t.front(),chunks[c]->t.back()-chunks[c]->t.front());
-	}
-	*/
 
 	// STEP Ic : CATAGORIZE CHUNKS BY MEANS
 	double NEW_BIN_THRESH = 2;
@@ -204,7 +154,6 @@ void LibraryBuilder::start() {
 		for(int c = 0; c < chunk_bins.size(); c++) {
 			for ( int d = 0; d < chunk_bins[c]->size(); d++ ) {
 				sprintf(buf, "%s/%d.%d.csv", outdir_fname.c_str(), c, d);
-				//CSVLoader::writeTStoCSV(string(buf),chunk_bins[c]->at(d),outprec);
 				TimeSeries *tmp = inputRaw->selectTime(chunk_bins[c]->at(d)->t.front(), chunk_bins[c]->at(d)->t.back());
 				CSVLoader::writeTStoCSV(string(buf),tmp,outprec);
 				delete tmp;

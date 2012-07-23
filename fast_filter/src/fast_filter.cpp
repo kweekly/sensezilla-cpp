@@ -16,6 +16,7 @@ DerivativeFilter DERIV_FILTER;
 
 bool spk_filter_configure(AbstractFilter * f, int iter) {
 	if ( iter < sizeof(windowSizes)/sizeof(double) ) {
+		log_prog(2,2,"Spike Filter","%d/%d iterations",iter+1,sizeof(windowSizes)/sizeof(double));
 		((SpikeFilter *)f)->setWindowSize(windowSizes[iter] * windowRatio);
 		return true;
 	}
@@ -38,24 +39,10 @@ public:
 TimeSeries * MinPeakFilter::filter(TimeSeries * ts) {
 	MIN_FILTER.setWindowSize(60);
 	SPK_FILTER.setWindowInterval(1);
+
+	log_prog(1,2,"Min Filter","");
 	ts = MIN_FILTER.filter(ts);
 	ts = SPK_FILTER.filter_iterate(ts, &spk_filter_configure);
-//	ts = DERIV_FILTER.filter(ts);
-
-	/*
-	TransitionDetector tdet;
-	EventSeries<TransitionEvent> * eser = tdet.detect(ts);
-	printf("Transition Events\n");
-	for ( int c = 0; c < eser->events.size(); c++) {
-		printf("\t%10.2f",eser->events[c].t);
-		if ( eser->events[c].type == TransitionEvent::RISING) {
-			printf(" RISING\n");
-		} else {
-			printf(" FALLING\n");
-		}
-	}
-	delete eser;
-	 */
 	return ts;
 }
 

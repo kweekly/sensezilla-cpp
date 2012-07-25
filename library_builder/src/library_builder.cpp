@@ -86,6 +86,11 @@ void LibraryBuilder::start() {
 	EventSeries<TransitionEvent> * es = TRANS_DETECTOR.detect(inputTS);
 
 	log_i("%d Transitions found\n",es->events.size());
+	if ( es->events.size() <= 1 ) {
+		log_i("Not enough transitions to do anything useful");
+		log_prog(NUM_STEPS,NUM_STEPS,"Early abort","No data");
+		return;
+	}
 
 	// STEP Ia : SEPARATE INTO CHUNKS
 	log_prog(2,NUM_STEPS,"Separate Time Chunks","");
@@ -184,4 +189,5 @@ int main(int argc,  char * const * argv) {
 	LibraryBuilder prog;
 	prog.parseCL(argc,argv);
 	prog.start();
+	return 0;
 }

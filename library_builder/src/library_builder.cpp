@@ -158,7 +158,7 @@ void LibraryBuilder::start() {
 			log_e("Error: File %s exists and is not a directory",outdir_fname.c_str());
 			goto cleanup;
 		}
-		char buf[128];
+		char buf[1024];
 
 		// write the output
 		for(int c = 0; c < chunk_bins.size(); c++) {

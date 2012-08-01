@@ -6,6 +6,8 @@
  */
 #include "all.h"
 
+int error = 0;
+
 class LibraryBuilder : public AbstractProgram {
 public:
 	LibraryBuilder();
@@ -89,6 +91,7 @@ void LibraryBuilder::start() {
 	if ( es->events.size() <= 1 ) {
 		log_i("Not enough transitions to do anything useful");
 		log_prog(NUM_STEPS,NUM_STEPS,"Early abort","No data");
+		error = 1;
 		return;
 	}
 
@@ -147,15 +150,18 @@ void LibraryBuilder::start() {
 		int ret = stat(outdir_fname.c_str(), &statret);
 		if ( ret && errno != ENOENT ) {
 			log_e("Error: Couldn't stat %s : %s",outdir_fname.c_str(),strerror(errno));
+			error = 1;
 			goto cleanup;
 		} else if ( ret && errno == ENOENT) { // make the directory ourselves
 			ret = mkdir(outdir_fname.c_str(), 0777);
 			if ( ret ) {
 				log_e("Error: Couldn't create output directory %s : %s",outdir_fname.c_str(),strerror(errno));
+				error = 1;
 				goto cleanup;
 			}
 		} else if ( !S_ISDIR(statret.st_mode) ) {
 			log_e("Error: File %s exists and is not a directory",outdir_fname.c_str());
+			error = 1;
 			goto cleanup;
 		}
 		char buf[1024];
@@ -189,5 +195,5 @@ int main(int argc,  char * const * argv) {
 	LibraryBuilder prog;
 	prog.parseCL(argc,argv);
 	prog.start();
-	return 0;
+	return error;
 }

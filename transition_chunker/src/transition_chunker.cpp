@@ -8,10 +8,10 @@
 
 int error = 0;
 
-class LibraryBuilder : public AbstractProgram {
+class TransitionChunker : public AbstractProgram {
 public:
-	LibraryBuilder();
-	virtual ~LibraryBuilder();
+	TransitionChunker();
+	virtual ~TransitionChunker();
 
 	virtual void printHelp();
 	virtual void start();
@@ -22,21 +22,21 @@ private:
 	int outprec;
 
 	string csvin_fname;
-	string outdir_fname;
+	string csvout_fname;
 
 	bool use_csv;
 };
 
-LibraryBuilder::LibraryBuilder() {
+TransitionChunker::TransitionChunker() {
 	csvin_fname.clear();
-	outdir_fname.clear();
+	csvout_fname.clear();
 	use_csv = false;
 }
-LibraryBuilder::~LibraryBuilder() {
+TransitionChunker::~TransitionChunker() {
 
 }
 
-bool LibraryBuilder::processCLOption(string opt, string val) {
+bool TransitionChunker::processCLOption(string opt, string val) {
 	if (opt == "csvin") {
 		use_csv = true;
 		csvin_fname = val;;
@@ -45,21 +45,21 @@ bool LibraryBuilder::processCLOption(string opt, string val) {
 	else if ( opt == "outprec" ) {
 		outprec = atoi(val.c_str());
 		return true;
-	} else if ( opt == "outdir") {
-		outdir_fname = val;
+	} else if ( opt == "csvout") {
+		csvout_fname = val;
 		return true;
 	}
 
 	return AbstractProgram::processCLOption(opt, val);
 }
 
-void LibraryBuilder::printHelp() {
+void TransitionChunker::printHelp() {
 	log_i(
-			"Library Builder\n"
+			"Transition Chunker\n"
 			"Kevin Weekly\n"
 			"\n"
 			"\t-csvin  : Input CSV file\n"
-			"\t-outdir : Output directory\n"
+			"\t-csvout : Output CSV file\n"
 			"\t-outprec :Output precision\n"
 			);
 	AbstractProgram::printHelp();
@@ -71,7 +71,7 @@ bool cmp_by_timeseries_length(TimeSeries * ts1, TimeSeries * ts2) {
 	return (ts1->t.back() - ts1->t.front()) > (ts2->t.back() - ts2->t.front());
 }
 
-void LibraryBuilder::start() {
+void TransitionChunker::start() {
 	TimeSeries * inputTS = NULL;
 	if (use_csv) {
 		inputTS = CSVLoader::loadTSfromCSV(csvin_fname);
@@ -145,22 +145,22 @@ void LibraryBuilder::start() {
 		}
 	}
 
-	if ( outdir_fname.size() > 0 ) {
+	if ( csvout_fname.size() > 0 ) {
 		struct stat statret;
-		int ret = stat(outdir_fname.c_str(), &statret);
+		int ret = stat(csvout_fname.c_str(), &statret);
 		if ( ret && errno != ENOENT ) {
-			log_e("Error: Couldn't stat %s : %s",outdir_fname.c_str(),strerror(errno));
+			log_e("Error: Couldn't stat %s : %s",csvout_fname.c_str(),strerror(errno));
 			error = 1;
 			goto cleanup;
 		} else if ( ret && errno == ENOENT) { // make the directory ourselves
-			ret = mkdir(outdir_fname.c_str(), 0777);
+			ret = mkdir(csvout_fname.c_str(), 0777);
 			if ( ret ) {
-				log_e("Error: Couldn't create output directory %s : %s",outdir_fname.c_str(),strerror(errno));
+				log_e("Error: Couldn't create output directory %s : %s",csvout_fname.c_str(),strerror(errno));
 				error = 1;
 				goto cleanup;
 			}
 		} else if ( !S_ISDIR(statret.st_mode) ) {
-			log_e("Error: File %s exists and is not a directory",outdir_fname.c_str());
+			log_e("Error: File %s exists and is not a directory",csvout_fname.c_str());
 			error = 1;
 			goto cleanup;
 		}
@@ -170,7 +170,7 @@ void LibraryBuilder::start() {
 		for(int c = 0; c < chunk_bins.size(); c++) {
 			log_prog(5,NUM_STEPS,"Write out chunks","%.2f%%",100.0*c/chunk_bins.size());
 			for ( int d = 0; d < chunk_bins[c]->size(); d++ ) {
-				sprintf(buf, "%s/%d.%d.csv", outdir_fname.c_str(), c, d);
+				sprintf(buf, "%s/%d.%d.csv", csvout_fname.c_str(), c, d);
 				TimeSeries *tmp = inputRaw->selectTime(chunk_bins[c]->at(d)->t.front(), chunk_bins[c]->at(d)->t.back());
 				CSVLoader::writeTStoCSV(string(buf),tmp,outprec);
 				delete tmp;
@@ -192,7 +192,7 @@ void LibraryBuilder::start() {
 
 
 int main(int argc,  char * const * argv) {
-	LibraryBuilder prog;
+	TransitionChunker prog;
 	prog.parseCL(argc,argv);
 	prog.start();
 	return error;

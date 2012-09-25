@@ -196,11 +196,15 @@ double TimeSeries::min() {
 }
 
 double TimeSeries::mean() {
+	return sum() / t.size();
+}
+
+double TimeSeries::sum() {
 	double sumv = 0;
 	for ( int c = 0; c < t.size(); c++) {
 		sumv += v[c];
 	}
-	return sumv / t.size();
+	return sumv;
 }
 
 

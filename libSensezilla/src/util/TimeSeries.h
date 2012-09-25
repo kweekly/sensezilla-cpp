@@ -40,6 +40,7 @@ public :
 	double max();
 	double min();
 	double mean();
+	double sum();
 
 	vector<string> metadata;
 	vector<double> t;

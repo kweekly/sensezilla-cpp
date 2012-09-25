@@ -48,6 +48,12 @@ void AbstractProgram::parseCL(int argc, char * const * argv){
 			}
 		}
 	}
+	if ( got_opt ) {
+		if ( !processCLOption(option, string("")) ) {
+			log_e("Unknown option -%s",option.c_str());
+			error = true;
+		}
+	}
 	if ( error ){
 		printHelp();
 		exit(1);

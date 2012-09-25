@@ -37,6 +37,7 @@ public:
 		h = 300;
 		csvprovided = 0;
 		pngprovided = 0;
+		sah = false;
 	}
 	~CSVPlotter() {}
 
@@ -51,6 +52,7 @@ public:
 			"\t-height <height> : Height of image in pixels\n"
 			"\t-xlabel <string> : Label of time axis\n"
 			"\t-ylabel <string> : Label for value axis\n"
+			"\t-sah : Sample-and-hold vs. linear interpolation\n"
 			"\t-title <string> : Title of plot\n"
 		);
 
@@ -79,9 +81,22 @@ public:
 		vmax = ts->max(), vmin = ts->min();
 		tmin = ts->t[0], tmax = ts->t.back();
 
-		t = &(ts->t[0]);
-		v = &(ts->v[0]);
-		npoints = ts->t.size();
+		if ( sah ) {
+			npoints = ts->t.size() * 2 - 2;
+			t = new PLFLT[npoints];
+			v = new PLFLT[npoints];
+			for ( int c = 0; c < ts->t.size() - 1; c++ ) {
+				t[c * 2] = ts->t[c];
+				v[c * 2] = ts->v[c];
+				t[c * 2 + 1] = ts->t[c+1];
+				v[c * 2 + 1] = ts->v[c];
+			}
+		} else {
+			t = &(ts->t[0]);
+			v = &(ts->v[0]);
+			npoints = ts->t.size();
+		}
+
 
 		mkplot();
 	}
@@ -149,6 +164,9 @@ public:
 		} else if ( opt == "title") {
 			title = val;
 			return true;
+		} else if ( opt == "sah" ){
+			sah = true;
+			return true;
 		}
 
 		return false;
@@ -163,6 +181,7 @@ private:
 	string xlabel;
 	string ylabel;
 	string title;
+	bool sah;
 
 	// for plotting
 	int npoints;

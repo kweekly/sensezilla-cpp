@@ -77,7 +77,7 @@ void CSVLoader::writeMultiTStoCSV(string fname, vector<TimeSeries *> ts, int pre
 
 	fout.precision(precision);
 
-	log("Writing CSV file: %s",fname.c_str());
+	log_i("Writing CSV file: %s",fname.c_str());
 	for (int c = 0; c < ts[0]->metadata.size(); c++ ) {
 		fout << "#" << ts[0]->metadata[c] << endl;
 	}
@@ -99,7 +99,7 @@ void CSVLoader::writeMultiTStoCSV(string fname, vector<TimeSeries *> ts, int pre
 		}
 	}
 
-	log("Wrote %d points in %d columns.",ts[0]->t.size(),ts.size());
+	log_i("Wrote %d points in %d columns.",ts[0]->t.size(),ts.size());
 
 
 

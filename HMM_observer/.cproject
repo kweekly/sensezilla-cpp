@@ -501,11 +501,13 @@
 <listOptionValue builtIn="false" value="&quot;${workspace_loc:/HMM_observer/src}&quot;"/>
 </option>
 <option id="gnu.cpp.compiler.option.other.other.1632647192" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0 -Wno-sign-compare -msse3 -mssse3" valueType="string"/>
+<option id="gnu.cpp.compiler.option.optimization.flags.1712159058" name="Other optimization flags" superClass="gnu.cpp.compiler.option.optimization.flags" value="-march=native" valueType="string"/>
 <inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1936081269" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 </tool>
 <tool id="cdt.managedbuild.tool.gnu.c.compiler.exe.release.679950643" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.exe.release">
 <option defaultValue="gnu.c.optimization.level.most" id="gnu.c.compiler.exe.release.option.optimization.level.1042490661" name="Optimization Level" superClass="gnu.c.compiler.exe.release.option.optimization.level" valueType="enumerated"/>
 <option id="gnu.c.compiler.exe.release.option.debugging.level.328170127" name="Debug Level" superClass="gnu.c.compiler.exe.release.option.debugging.level" value="gnu.c.debugging.level.none" valueType="enumerated"/>
+<option id="gnu.c.compiler.option.optimization.flags.1912178410" name="Other optimization flags" superClass="gnu.c.compiler.option.optimization.flags" value="-march=native" valueType="string"/>
 <inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1585739001" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 </tool>
 <tool id="cdt.managedbuild.tool.gnu.c.linker.exe.release.1525279216" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.exe.release"/>

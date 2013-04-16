@@ -21,7 +21,7 @@ TimeSeries * AbstractFilter::filter_iterate(TimeSeries * ts, bool (*update_func)
 	while(retval) {
 		retval = update_func(this, iter);
 		if ( !retval ) break;
-		if ( iter > 0 and needs_copy ){
+		if ( iter > 0 && needs_copy ){
 			for ( int c = 0; c < ts->t.size(); c++ )
 				buf->v[c] = ts->v[c];
 		}

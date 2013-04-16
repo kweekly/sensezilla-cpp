@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\libSensezilla\src\all.h" />
+    <ClInclude Include="..\..\libSensezilla\src\detectors\AbstractDetector.h" />
+    <ClInclude Include="..\..\libSensezilla\src\detectors\TransitionDetector.h" />
+    <ClInclude Include="..\..\libSensezilla\src\filters\AbstractFilter.h" />
+    <ClInclude Include="..\..\libSensezilla\src\filters\DerivativeFilter.h" />
+    <ClInclude Include="..\..\libSensezilla\src\filters\MinFilter.h" />
+    <ClInclude Include="..\..\libSensezilla\src\filters\SpikeFilter.h" />
+    <ClInclude Include="..\..\libSensezilla\src\filters\WindowedFilter.h" />
+    <ClInclude Include="..\..\libSensezilla\src\programs\AbstractFilterProgram.h" />
+    <ClInclude Include="..\..\libSensezilla\src\programs\AbstractProgram.h" />
+    <ClInclude Include="..\..\libSensezilla\src\util\CSVLoader.h" />
+    <ClInclude Include="..\..\libSensezilla\src\util\DeviceLibrary.h" />
+    <ClInclude Include="..\..\libSensezilla\src\util\EventSeries.h" />
+    <ClInclude Include="..\..\libSensezilla\src\util\logging.h" />
+    <ClInclude Include="..\..\libSensezilla\src\util\TimeSeries.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\libSensezilla\src\detectors\TransitionDetector.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\filters\AbstractFilter.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\filters\DerivativeFilter.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\filters\MinFilter.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\filters\SpikeFilter.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\filters\WindowedFilter.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\programs\AbstractFilterProgram.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\programs\AbstractProgram.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\util\CSVLoader.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\util\DeviceLibrary.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\util\logging.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\util\TimeSeries.cpp" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{9417E483-489F-4466-9F17-15C92959ED61}</ProjectGuid>
+    <RootNamespace>libSensezilla</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>$(SolutionDir)\..\libSensezilla\src;$(IncludePath)</IncludePath>
+    <TargetExt>.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

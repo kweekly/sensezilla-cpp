@@ -1,10 +1,13 @@
 #include "all.h"
 
+#if !defined(_WIN32)
 #include <sys/time.h>
 #include <sys/resource.h>
+#endif
 
 AbstractProgram::AbstractProgram() {
-
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#if __x86_64__
 	rlimit64 lim;
 	if ( getrlimit64(RLIMIT_AS, &lim) ){
 		log_e("Error getting rlimit %d",errno);
@@ -15,7 +18,19 @@ AbstractProgram::AbstractProgram() {
 		log_e("Error setting rlimit %d",errno);
 		exit(1);
 	}
-
+#elif !defined(_WIN32)
+	rlimit lim;
+	if ( getrlimit(RLIMIT_AS, &lim) ){
+		log_e("Error getting rlimit %d",errno);
+	}
+	log_i("Decreasing memory limit from %dB to 2GB",lim.rlim_cur);
+	lim.rlim_cur = 2000000000L;
+	if ( setrlimit(RLIMIT_AS, &lim) ) {
+		log_e("Error setting rlimit %d",errno);
+		exit(1);
+	}
+#endif
+#endif
 }
 
 AbstractProgram::~AbstractProgram() {}

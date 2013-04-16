@@ -13,12 +13,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <getopt.h>
 #include <stdarg.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 // C++ classes
 #include <vector>
@@ -26,6 +24,7 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 using namespace std;
 
 // my files

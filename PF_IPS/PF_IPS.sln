@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Express 2012 for Windows Desktop
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PF_IPS", "PF_IPS\PF_IPS.vcxproj", "{9A2BAB72-94B4-43DB-A75D-20BE52809510}"
+	ProjectSection(ProjectDependencies) = postProject
+		{9417E483-489F-4466-9F17-15C92959ED61} = {9417E483-489F-4466-9F17-15C92959ED61}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libSensezilla", "libSensezilla\libSensezilla.vcxproj", "{9417E483-489F-4466-9F17-15C92959ED61}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9A2BAB72-94B4-43DB-A75D-20BE52809510}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9A2BAB72-94B4-43DB-A75D-20BE52809510}.Debug|Win32.Build.0 = Debug|Win32
+		{9A2BAB72-94B4-43DB-A75D-20BE52809510}.Release|Win32.ActiveCfg = Release|Win32
+		{9A2BAB72-94B4-43DB-A75D-20BE52809510}.Release|Win32.Build.0 = Release|Win32
+		{9417E483-489F-4466-9F17-15C92959ED61}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9417E483-489F-4466-9F17-15C92959ED61}.Debug|Win32.Build.0 = Debug|Win32
+		{9417E483-489F-4466-9F17-15C92959ED61}.Release|Win32.ActiveCfg = Release|Win32
+		{9417E483-489F-4466-9F17-15C92959ED61}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

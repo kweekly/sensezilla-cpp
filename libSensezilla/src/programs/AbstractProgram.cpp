@@ -40,7 +40,7 @@ void AbstractProgram::parseCL(int argc, char * const * argv){
 	bool got_opt = false;
 	bool error = false;
 	for ( int c = 1; c < argc; c++ ) {
-		if (argv[c][0] == '-') {
+		if (argv[c][0] == '-' && !isdigit(argv[c][1])) {
 			if ( got_opt ) {
 				if ( !processCLOption(option, string("")) ) {
 					log_e("Unknown option -%s",option.c_str());

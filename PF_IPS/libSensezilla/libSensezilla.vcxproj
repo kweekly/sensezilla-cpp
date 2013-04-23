@@ -25,6 +25,7 @@
     <ClInclude Include="..\..\libSensezilla\src\util\DeviceLibrary.h" />
     <ClInclude Include="..\..\libSensezilla\src\util\EventSeries.h" />
     <ClInclude Include="..\..\libSensezilla\src\util\logging.h" />
+    <ClInclude Include="..\..\libSensezilla\src\util\PNGLoader.h" />
     <ClInclude Include="..\..\libSensezilla\src\util\TimeSeries.h" />
   </ItemGroup>
   <ItemGroup>
@@ -39,6 +40,7 @@
     <ClCompile Include="..\..\libSensezilla\src\util\CSVLoader.cpp" />
     <ClCompile Include="..\..\libSensezilla\src\util\DeviceLibrary.cpp" />
     <ClCompile Include="..\..\libSensezilla\src\util\logging.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\util\PNGLoader.cpp" />
     <ClCompile Include="..\..\libSensezilla\src\util\TimeSeries.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -70,8 +72,13 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(SolutionDir)\..\libSensezilla\src;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\..\libraries\include;$(SolutionDir)\..\libSensezilla\src;$(IncludePath)</IncludePath>
     <TargetExt>.lib</TargetExt>
+    <LibraryPath>$(SolutionDir)\..\libraries\;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>$(SolutionDir)\..\libraries\include;$(SolutionDir)\..\libSensezilla\src;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)\..\libraries\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -81,6 +88,9 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib>
+      <AdditionalDependencies>libpng16.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -93,6 +103,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>libpng.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

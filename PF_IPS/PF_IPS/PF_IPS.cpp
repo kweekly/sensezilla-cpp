@@ -162,12 +162,24 @@ void PF_IPS::start() {
 			return;
 		}
 
+		bool load_from_PNG = true;
+
 		if ( mapcache_fname != "" ) { // see if cache is available
 
+			
 		}
 
 		double dimx = maxx - minx, dimy = maxy - miny;
 		log_i("Dimensions of map: (%.2f m x %.2f m)  %.2f sq.m.",dimx,dimy,dimx*dimy);
+
+		if ( load_from_PNG ) {
+			PNGData data = PNGLoader::loadFromPNG(mappng_fname);
+			
+
+
+			log_i("Freeing PNG data");
+			PNGLoader::freePNGData(&data);
+		}
 
 	} else {
 		if ( mapcache_fname == "" ) {
@@ -187,6 +199,10 @@ void PF_IPS::start() {
 	if (stateout_fname != "") {
 
 	}
+
+	// clean-up
+	while(!rssi_data.empty()) delete rssi_data.back(), rssi_data.pop_back();
+	while(!xy_data.empty()) delete xy_data.back(), xy_data.pop_back();
 }
 
 void PF_IPS::printHelp() {

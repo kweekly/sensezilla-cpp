@@ -8,6 +8,7 @@
 #ifndef ALL_H_
 #define ALL_H_
 
+#define _USE_MATH_DEFINES
 // C libraries
 #include <stdlib.h>
 #include <stdio.h>
@@ -32,6 +33,7 @@ using namespace std;
 #include "util/TimeSeries.h"
 #include "util/CSVLoader.h"
 #include "util/EventSeries.h"
+#include "util/PNGLoader.h"
 
 #include "programs/AbstractProgram.h"
 #include "programs/AbstractFilterProgram.h"

@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 #include "all.h"
+#include "ShortestPathMap.h"
+#include "HexMap.h"
 
 #include <thread>
 
@@ -31,6 +33,7 @@ private:
 
 	double minx,miny,maxx,maxy;
 	double hexradius;
+	double movespeed;
 	
 	int nParticles;
 
@@ -40,7 +43,8 @@ private:
 
 PF_IPS::PF_IPS() {
 	disp_help = use_rssi = use_xy = use_trajout = use_partout = use_mappng = mappng_bounds_provided = moverwrite = false;
-	hexradius = 5;
+	hexradius = 1;
+	movespeed = 1.5;
 	nParticles = 1000;
 }
 PF_IPS::~PF_IPS() {}
@@ -109,6 +113,13 @@ mberror:
 			log_e("Error in parsing -particles");
 		}
 		return true;
+	} else if ( opt == "movespeed") {
+		try {
+			movespeed = std::stod(val);
+		} catch(exception e) {
+			log_e("Error in parsing -movespeed");
+		}
+		return true;	
 	} else if ( opt == "trajout") {
 		trajout_fname = val;
 		use_trajout = true;
@@ -149,9 +160,11 @@ void PF_IPS::start() {
 		xy_data = CSVLoader::loadMultiTSfromCSV(xyloc_fname);
 	}
 
+	ShortestPathMap * pathmap = NULL;
+
 	if ( use_mappng ) {
 		if ( !mappng_bounds_provided ) {
-			log_e("Must provide bounds of map PNG file provided\n");
+			log_e("Must provide bounds of map PNG file provided");
 			error = 1;
 			return;
 		}
@@ -162,23 +175,62 @@ void PF_IPS::start() {
 			return;
 		}
 
+		double bounds[4] = { minx, maxx, miny, maxy };
+		HexMap hmap(bounds,hexradius,2);
+		int movespeed_hexes = (int)(movespeed / hexradius + 0.9999);
+
 		bool load_from_PNG = true;
 
 		if ( mapcache_fname != "" ) { // see if cache is available
-
-			
+			pathmap = ShortestPathMap::loadFromCache(mapcache_fname, mapcache_fname, hmap, movespeed_hexes);
+			if ( pathmap ) {
+				log_i("Map cache loaded, no need to recalculate");
+				load_from_PNG = false;
+			} else {
+				if ( moverwrite ) {
+					log_e("Map cache invalid and moverwrite FALSE, aborting.");
+					error = 1;
+					return;
+				}
+				log_i("Map cache invalid and will be recalculated.");
+			}
 		}
 
 		double dimx = maxx - minx, dimy = maxy - miny;
 		log_i("Dimensions of map: (%.2f m x %.2f m)  %.2f sq.m.",dimx,dimy,dimx*dimy);
+		log_i("Bounds: [%.2f %.2f %.2f %.2f]",minx,maxx,miny,maxy);
+		string hexmap_str = hmap.toString();
+		log_i("Hex map: %s",hexmap_str.c_str());
 
 		if ( load_from_PNG ) {
 			PNGData data = PNGLoader::loadFromPNG(mappng_fname);
+			log_i("Loading map from %s",mappng_fname.c_str());
 			
-
-
+			log_i("Reading obstacle part");
+			vector<vector<double>> obsmap(data.height);
+			for ( int row = 0; row < data.height; row++ ) {
+				obsmap[row].resize(data.width);
+				for ( int col = 0; col < data.width; col++) {
+					obsmap[row][col] = (data.B[row][col] == data.R[row][col] && data.R[row][col] == data.G[row][col] && data.R[row][col] != 255);
+				}
+			}
 			log_i("Freeing PNG data");
 			PNGLoader::freePNGData(&data);
+
+			log_i("Interpolating into hexgrid");
+			obsmap = hmap.interpolateXYData(obsmap,bounds);
+			
+			log_i("Thresholding");
+			vector<vector<bool>> obsmap_th(obsmap.size());
+			for ( int j = 0; j < obsmap.size(); j++ ) {
+				obsmap_th[j].resize(obsmap[j].size());
+				for ( int i = 0; i < obsmap[j].size(); i++ ) {
+					obsmap_th[j][i] = obsmap[j][i] > 0.2;
+				}
+			}
+
+			log_i("Calculating shortest path");
+			pathmap = ShortestPathMap::generateFromObstacleMap(obsmap_th, mappng_fname, hmap, movespeed_hexes );
 		}
 
 	} else {
@@ -226,6 +278,7 @@ void PF_IPS::printHelp() {
 		  "\t-statein   : Static state file\n"
 		  "\t-stateout  : Static state file (can be same as statein)\n"
 		  "\t-particles : Number of particles\n"
+		  "\t-movespeed : Move Speed in m/s\n"
 		  "\n"
 		  "\t-trajout   : Max-likelihood state output file\n"
 		  "\t-partout   : Particle state estimate and weights\n"

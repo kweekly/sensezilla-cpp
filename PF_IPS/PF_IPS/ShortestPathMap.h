@@ -8,8 +8,10 @@ class ShortestPathMap
 public:
 	// returns NULL if map cache does not satisfy parameters
 	static ShortestPathMap * loadFromCache(const string fname, const string pngname, const HexMap hmap, int hexmovespeed);
+	// loads all parameters from cache
+	static ShortestPathMap * loadFromCache(const string fname);
 
-	static ShortestPathMap * generateFromObstacleMap(vector<vector<double>> hexdata, const string pngname, const HexMap hmap, int hexmovespeed);
+	static ShortestPathMap * generateFromObstacleMap(const vector<vector<bool>> &hexdata, const string pngname, const HexMap hmap, int hexmovespeed);
 
 	void saveToCache(const string fname);
 
@@ -27,6 +29,9 @@ private:
 	
 	hexcoords idx2Hex(unsigned int idx);
 	unsigned int hex2idx(hexcoords hex);
+
+	static bool _loadCacheParams(FILE * fin, string *pngname, HexMap* hmap, int *hexmovespeed);
+	static bool _loadCacheData(FILE * fin, ShortestPathMap * ptr);
 
 	ShortestPathMap(const HexMap h);
 	~ShortestPathMap(void);

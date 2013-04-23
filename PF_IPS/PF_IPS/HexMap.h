@@ -14,23 +14,27 @@ class HexMap
 {
 public:
 	HexMap();
-	HexMap( double bounds[4], double hexradius, double nHexOvercoverage );
+	HexMap( const double pbounds[4], double hexradius, double nHexOvercoverage );
 	~HexMap(void);
 
 	bool operator==(const HexMap &other) const;
 	bool operator!=(const HexMap &other) const;
 
-	int getRows();
-	int getColumns();
+	int getRows() const;
+	int getColumns() const;
 
-	xycoords getCenter( hexcoords hex );
-	hexcoords nearestHex( xycoords xy );
+	xycoords getCenter( hexcoords hex ) const;
+	hexcoords nearestHex( xycoords xy ) const;
 
-	vector<vector<double>> interpolateXYData( const vector<vector<double>> &data, const vector<double> &xpoints, const vector<double> &ypoints );
+	vector<vector<double>> interpolateXYData( const vector<vector<double>> &data, const vector<double> &xpoints, const vector<double> &ypoints ) const;
+	vector<vector<double>> interpolateXYData( const vector<vector<double>> &data, const double dbounds[4]) const;
+
+	string toString();
 
 private:
 	double bounds[4];
 	double H,R,S,W;
 
 	int rows, cols;
+
 };

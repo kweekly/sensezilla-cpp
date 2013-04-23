@@ -56,6 +56,9 @@ PNGData PNGLoader::loadFromPNG(string fname) {
 	int height = png_get_image_height(png_ptr,info_ptr);
 	int width = png_get_image_width(png_ptr,info_ptr);
 	int channels = png_get_channels(png_ptr,info_ptr);
+	
+	png_byte color_type = png_get_color_type(png_ptr,info_ptr);
+
 
 	png_bytepp row_pointers = (png_bytepp)png_malloc(png_ptr,height*sizeof(png_bytep));
 	for ( int i = 0; i < height; i++ )
@@ -75,8 +78,6 @@ PNGData PNGLoader::loadFromPNG(string fname) {
 	png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
 	fclose(fin);
 	
-	png_byte color_type = png_get_color_type(png_ptr,info_ptr);
-
 	
 	log_i("Loaded %dx%d PNG image",width,height);
 	retval.width = width;
@@ -121,7 +122,7 @@ PNGData PNGLoader::loadFromPNG(string fname) {
 }
 
 
-void PNGLoader::writeToPNG(string fname, PNGData data){
+void PNGLoader::writeToPNG(string fname, const PNGData &data){
 	int width,height;
 	png_byte color_type = 0;
 	int channels = 0;

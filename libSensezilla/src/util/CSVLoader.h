@@ -15,7 +15,7 @@ public:
 	static vector<TimeSeries *> loadMultiTSfromCSV(string fname);
 
 	static void writeTStoCSV(string fname, TimeSeries * ts, int precision = 32);
-	static void writeMultiTStoCSV(string fname, vector<TimeSeries * > ts, int precision = 32);
+	static void writeMultiTStoCSV(string fname, const vector<TimeSeries * > &ts, int precision = 32);
 
 };
 

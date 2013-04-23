@@ -67,7 +67,7 @@ void CSVLoader::writeTStoCSV(string fname, TimeSeries * ts, int precision){
 	tmp.push_back(ts);
 	writeMultiTStoCSV(fname, tmp, precision);
 }
-void CSVLoader::writeMultiTStoCSV(string fname, vector<TimeSeries *> ts, int precision) {
+void CSVLoader::writeMultiTStoCSV(string fname,const vector<TimeSeries *> &ts, int precision) {
 	ofstream fout(fname.c_str());
 	string line;
 	if ( !fout.is_open() ) {

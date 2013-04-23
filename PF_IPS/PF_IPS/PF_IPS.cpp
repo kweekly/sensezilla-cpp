@@ -43,7 +43,7 @@ private:
 
 PF_IPS::PF_IPS() {
 	disp_help = use_rssi = use_xy = use_trajout = use_partout = use_mappng = mappng_bounds_provided = moverwrite = false;
-	hexradius = 1;
+	hexradius = 5;
 	movespeed = 1.5;
 	nParticles = 1000;
 }
@@ -182,12 +182,12 @@ void PF_IPS::start() {
 		bool load_from_PNG = true;
 
 		if ( mapcache_fname != "" ) { // see if cache is available
-			pathmap = ShortestPathMap::loadFromCache(mapcache_fname, mapcache_fname, hmap, movespeed_hexes);
+			pathmap = ShortestPathMap::loadFromCache(mapcache_fname, mappng_fname, hmap, movespeed_hexes);
 			if ( pathmap ) {
 				log_i("Map cache loaded, no need to recalculate");
 				load_from_PNG = false;
 			} else {
-				if ( moverwrite ) {
+				if ( !moverwrite ) {
 					log_e("Map cache invalid and moverwrite FALSE, aborting.");
 					error = 1;
 					return;
@@ -231,6 +231,11 @@ void PF_IPS::start() {
 
 			log_i("Calculating shortest path");
 			pathmap = ShortestPathMap::generateFromObstacleMap(obsmap_th, mappng_fname, hmap, movespeed_hexes );
+
+			if ( mapcache_fname != "" && moverwrite  ){
+				log_i("Writing mapcache");
+				pathmap->saveToCache(mapcache_fname);
+			}
 		}
 
 	} else {

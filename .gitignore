@@ -39,3 +39,13 @@ _ReSharper*/
 plplot*/
 RFID/*
 libraries/*
+HMM_observer/.settings/language.settings.xml
+libSensezilla/.settings/language.settings.xml
+libSensezilla/.settings/org.eclipse.cdt.codan.core.prefs
+minspike_filter/.settings/language.settings.xml
+minspike_filter/.settings/org.eclipse.cdt.codan.core.prefs
+PF_IPS/data/mapcache.dat
+PF_IPS/libSensezilla/libSensezilla.vcxproj.filters
+PF_IPS/PF_IPS.opensdf
+RemoteSystemsTempFiles/.project
+transition_chunker/.settings/language.settings.xml

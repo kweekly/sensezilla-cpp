@@ -29,7 +29,7 @@ bool ShortestPathMap::_loadCacheParams(FILE * fin, string *pngname, HexMap* hmap
 	// filename
 	char fnamebuf[128];
 	rd = fread(&l,sizeof(l),1,fin);
-	if ( rd != sizeof(l) ) return false;
+	if ( rd != 1 ) return false;
 	if ( l >= 128 ) {
 		log_e("Error: Length of name too long in cache file");
 		return false;
@@ -42,11 +42,11 @@ bool ShortestPathMap::_loadCacheParams(FILE * fin, string *pngname, HexMap* hmap
 
 	// hexmap
 	rd = fread(hmap, sizeof(HexMap),1,fin);
-	if ( rd != sizeof(HexMap) ) return false;
+	if ( rd != 1 ) return false;
 	
 	// hexmovespeed
 	rd = fread(hexmovespeed, sizeof(int),1,fin);
-	if ( rd != sizeof(int) ) return false;
+	if ( rd != 1 ) return false;
 
 	return true;
 }
@@ -57,18 +57,17 @@ bool ShortestPathMap::_loadCacheData(FILE * fin, ShortestPathMap * retval) {
 
 	// load data
 	rd = fread(&l,sizeof(l),1,fin);
-	if ( rd != sizeof(l) ) goto rderr2;
+	if ( rd != 1 ) goto rderr2;
 	retval->map.reserve(l);
 	for ( int c = 0; c < l; c++ ) {
 		int m;
 		rd = fread(&m,sizeof(m),1,fin);
-		if ( m != sizeof(m) ) goto rderr2;
-		vector<int> subvec;
-		subvec.reserve(m);
+		if ( rd != 1 ) goto rderr2;
+		vector<int> subvec(m);
 		for ( int d = 0; d< m; d++ ) {
 			int n;
 			rd = fread(&n, sizeof(n),1,fin);
-			if ( n != sizeof(n)) goto rderr2;
+			if ( rd != 1) goto rderr2;
 			subvec[d] = n;
 		}
 		subvec.shrink_to_fit();
@@ -182,7 +181,7 @@ ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<b
 		}
 		for ( int d = 0; d < nidx; d++ ) {
 			if ( c == d ) {
-				dist[c][d] = 0 ;
+				dist[c][d] = 0;
 			} else {
 				dist[c][d] = -1;
 			}

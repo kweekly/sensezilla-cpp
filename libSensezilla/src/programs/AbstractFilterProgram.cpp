@@ -72,7 +72,7 @@ void AbstractFilterProgram::start() {
 		printHelp();
 		return;
 	}
-	for ( int c = 0; c < inputTS->t.size(); c++ )
+	for ( size_t c = 0; c < inputTS->t.size(); c++ )
 		inputTS->t[c] /= in_time_ratio;
 
 	*inputTS /= in_value_ratio;
@@ -80,7 +80,7 @@ void AbstractFilterProgram::start() {
 	TimeSeries * outputTS = filter(inputTS);
 
 	*outputTS *= out_value_ratio;
-	for ( int c = 0; c < outputTS->t.size(); c++ )
+	for ( size_t c = 0; c < outputTS->t.size(); c++ )
 			outputTS->t[c] *= out_time_ratio;
 
 	if ( !csvout_fname.empty() ){

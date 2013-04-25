@@ -21,6 +21,7 @@
     <ClInclude Include="..\..\libSensezilla\src\filters\WindowedFilter.h" />
     <ClInclude Include="..\..\libSensezilla\src\programs\AbstractFilterProgram.h" />
     <ClInclude Include="..\..\libSensezilla\src\programs\AbstractProgram.h" />
+    <ClInclude Include="..\..\libSensezilla\src\util\ConfigurationLoader.h" />
     <ClInclude Include="..\..\libSensezilla\src\util\CSVLoader.h" />
     <ClInclude Include="..\..\libSensezilla\src\util\DeviceLibrary.h" />
     <ClInclude Include="..\..\libSensezilla\src\util\EventSeries.h" />
@@ -37,6 +38,7 @@
     <ClCompile Include="..\..\libSensezilla\src\filters\WindowedFilter.cpp" />
     <ClCompile Include="..\..\libSensezilla\src\programs\AbstractFilterProgram.cpp" />
     <ClCompile Include="..\..\libSensezilla\src\programs\AbstractProgram.cpp" />
+    <ClCompile Include="..\..\libSensezilla\src\util\ConfigurationLoader.cpp" />
     <ClCompile Include="..\..\libSensezilla\src\util\CSVLoader.cpp" />
     <ClCompile Include="..\..\libSensezilla\src\util\DeviceLibrary.cpp" />
     <ClCompile Include="..\..\libSensezilla\src\util\logging.cpp" />

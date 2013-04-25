@@ -30,7 +30,7 @@ EventSeries<TransitionEvent> * TransitionDetector::detect(TimeSeries * ts) {
 
 	bool found_spike = false;
 	EventSeries<TransitionEvent>  * eser = new EventSeries<TransitionEvent>();
-	for ( int c= 1; c < ts->t.size() - 1; c++ ) {
+	for ( size_t c= 1; c < ts->t.size() - 1; c++ ) {
 		// not only over threshold, but find the peak
 		if ( ts->v[c] >= thresh_scaled && ts->v[c-1] <= ts->v[c] && ts->v[c+1] <= ts->v[c]) {
 			if ( !found_spike )

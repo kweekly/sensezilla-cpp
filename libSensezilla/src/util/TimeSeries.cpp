@@ -41,7 +41,7 @@ int TimeSeries::findPoint(double time) {
 TimeSeries * TimeSeries::selectTime(double t1, double t2) {
 	TimeSeries * nts = new TimeSeries();
 	int iA = findPoint(t1);
-	for ( int c = iA; c < t.size() && t[c] <= t2; c++) {
+	for ( size_t c = iA; c < t.size() && t[c] <= t2; c++) {
 		nts->insertPointAtEnd(t[c],v[c]);
 	}
 	return nts;
@@ -80,7 +80,7 @@ TimeSeries * TimeSeries::interp(vector<double> times) {
 	ret->metadata.assign(metadata.begin(),metadata.end());
 	ret->t.assign(times.begin(),times.end());
 	size_t idx = 0;
-	for ( int tidx = 0; tidx < times.size(); tidx++) {
+	for ( size_t tidx = 0; tidx < times.size(); tidx++) {
 		double time = times[tidx];
 		while ( idx <= t.size()-1 && time < t[idx] ) idx++;
 		if ( idx == 0 ) {// uh-oh, before time, use first two points
@@ -122,7 +122,7 @@ TimeSeries * TimeSeries::resample(double tinterval) {
 
 TimeSeries & TimeSeries::operator+=(TimeSeries &other) {
 	const TimeSeries * tmp = interpIntoTime(other);
-	for ( int c = 0; c < v.size(); c++ )
+	for ( size_t c = 0; c < v.size(); c++ )
 		v[c] += tmp->v[c];
 	delete tmp;
 	return *this;
@@ -130,46 +130,46 @@ TimeSeries & TimeSeries::operator+=(TimeSeries &other) {
 
 TimeSeries & TimeSeries::operator*=(TimeSeries &other) {
 	const TimeSeries * tmp = interpIntoTime(other);
-	for ( int c = 0; c < v.size(); c++ )
+	for ( size_t c = 0; c < v.size(); c++ )
 		v[c] *= tmp->v[c];
 	delete tmp;
 	return *this;
 }
 TimeSeries & TimeSeries::operator/=(TimeSeries &other) {
 	const TimeSeries * tmp = interpIntoTime(other);
-	for ( int c = 0; c < v.size(); c++ )
+	for ( size_t c = 0; c < v.size(); c++ )
 		v[c] /= tmp->v[c];
 	delete tmp;
 	return *this;
 }
 TimeSeries & TimeSeries::operator-=(TimeSeries &other) {
 	const TimeSeries * tmp = interpIntoTime(other);
-	for ( int c = 0; c < v.size(); c++ )
+	for ( size_t c = 0; c < v.size(); c++ )
 		v[c] -= tmp->v[c];
 	delete tmp;
 	return *this;
 }
 
 TimeSeries & TimeSeries::operator+=(const double val) {
-	for ( int c = 0; c < v.size(); c++ ) {
+	for ( size_t c = 0; c < v.size(); c++ ) {
 		v[c] += val;
 	}
 	return *this;
 }
 TimeSeries & TimeSeries::operator*=(const double val) {
-	for ( int c = 0; c < v.size(); c++ ) {
+	for ( size_t c = 0; c < v.size(); c++ ) {
 		v[c] *= val;
 	}
 	return *this;
 }
 TimeSeries & TimeSeries::operator/=(const double val) {
-	for ( int c = 0; c < v.size(); c++ ) {
+	for ( size_t c = 0; c < v.size(); c++ ) {
 		v[c] /= val;
 	}
 	return *this;
 }
 TimeSeries & TimeSeries::operator-=(const double val) {
-	for ( int c = 0; c < v.size(); c++ ) {
+	for ( size_t c = 0; c < v.size(); c++ ) {
 		v[c] -= val;
 	}
 	return *this;
@@ -177,13 +177,13 @@ TimeSeries & TimeSeries::operator-=(const double val) {
 
 int TimeSeries::find_max() {
 	int i = 0;
-	for ( int c = 1; c < t.size(); c++ )
+	for ( size_t c = 1; c < t.size(); c++ )
 		if ( v[c] > v[i] ) i = c;
 	return i;
 }
 int TimeSeries::find_min() {
 	int i = 0;
-	for ( int c = 1; c < t.size(); c++ )
+	for ( size_t c = 1; c < t.size(); c++ )
 		if ( v[c] < v[i] ) i = c;
 	return i;
 }
@@ -201,7 +201,7 @@ double TimeSeries::mean() {
 
 double TimeSeries::sum() {
 	double sumv = 0;
-	for ( int c = 0; c < t.size(); c++) {
+	for ( size_t c = 0; c < t.size(); c++) {
 		sumv += v[c];
 	}
 	return sumv;

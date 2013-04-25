@@ -18,7 +18,7 @@ DerivativeFilter::~DerivativeFilter() {}
 
 void DerivativeFilter::filter_into(TimeSeries * in, TimeSeries * out) {
 	// we actually can't tell the derivative for the first half-window of points
-	int pc = 0;
+	size_t pc = 0;
 	while ( in->t[pc] < window_size / 2 ) {
 		out->v[pc] = 0;
 		pc++;

@@ -37,13 +37,13 @@ private:
 	
 	int nParticles;
 
-	string rssi_fname, rssiparam_fname, xyloc_fname, xyparam_fname, trajout_fname, partout_fname;
+	string rssiparam_fname, xyparam_fname, trajout_fname, partout_fname;
 	string mappng_fname, mapcache_fname, statein_fname, stateout_fname;
 };
 
 PF_IPS::PF_IPS() {
 	disp_help = use_rssi = use_xy = use_trajout = use_partout = use_mappng = mappng_bounds_provided = moverwrite = false;
-	hexradius = 5;
+	hexradius = 0.5;
 	movespeed = 1.5;
 	nParticles = 1000;
 }
@@ -53,18 +53,12 @@ bool PF_IPS::processCLOption( string opt, string val ) {
 	if ( opt == "help" ) {
 		disp_help = true;
 		return true;
-	} else if ( opt == "rssiin") {
-		use_rssi = true;
-		rssi_fname = val;
-		return true;
 	} else if ( opt == "rssiparam") {
+		use_rssi = true;
 		rssiparam_fname = val;
 		return true;
-	} else if ( opt == "xyloc") {
-		xyloc_fname = val;
-		use_xy = true;
-		return true;
 	} else if ( opt == "xyparam") {
+		use_xy = true;
 		xyparam_fname = val;
 		return true;
 	} else if ( opt == "mappng") {
@@ -140,24 +134,40 @@ void PF_IPS::start() {
 		return;
 	}
 
-	vector<TimeSeries *> rssi_data;
-	vector<TimeSeries *> xy_data;
+	map<string,map<string, ConfigurationValue>> xy_config;
+	
+	map<string,map<string, ConfigurationValue>> rssi_config;
+	vector<RSSISensor> sensors;
+	vector<RSSITag> reference_tags;
 
 	if ( use_rssi ) {
-		if ( rssiparam_fname == "" ) {
-			log_e("Error: Need RSSI Parameter argument if using rssi\n");
-			error = 1;
-			return;
+		rssi_config = ConfigurationLoader::readConfiguration(rssiparam_fname);
+
+		for ( vector<ConfigurationValue>::iterator iter = rssi_config[string("sensors")][string("active_list")].begin(); iter != rssi_config[string("sensors")][string("active_list")].end(); iter++) {
+			string id = (*iter).asString();
+			RSSISensor sense;
+			sense.IDstr = id;
+			string posstr = rssi_config[string("sensors")][string("pos_")+id].asString();
+			sense.pos.x = std::stof(posstr.substr(0,posstr.find(' ')));
+			sense.pos.y = std::stof(posstr.substr(posstr.rfind(' ')+1));
+			log_i("RFID sensor %s at (%.2f, %.2f)",sense.IDstr.c_str(),sense.pos.x,sense.pos.y);
+			sensors.push_back( sense );
 		}
-		rssi_data = CSVLoader::loadMultiTSfromCSV(rssi_fname);
+
+		for ( vector<ConfigurationValue>::iterator iter = rssi_config[string("tags")][string("reference_list")].begin(); iter != rssi_config[string("tags")][string("reference_list")].end(); iter++) {
+			string id = (*iter).asString();
+			RSSITag tag;
+			tag.IDstr = id;
+			tag.isref = true;
+			string posstr = rssi_config[string("tags")][string("pos_")+id].asString();
+			tag.pos.x = std::stof(posstr.substr(0,posstr.find(' ')));
+			tag.pos.y = std::stof(posstr.substr(posstr.rfind(' ')+1));
+			log_i("RFID reference tag %s at (%.2f, %.2f)",tag.IDstr.c_str(),tag.pos.x,tag.pos.y);
+			reference_tags.push_back( tag );			
+		}
 	}
 	if ( use_xy ) {
-		if ( xyparam_fname == "" ) {
-			log_e("Error: Need XY Parameter argument if using xy\n");
-			error = 1;
-			return;
-		}
-		xy_data = CSVLoader::loadMultiTSfromCSV(xyloc_fname);
+		xy_config = ConfigurationLoader::readConfiguration(xyparam_fname);
 	}
 
 	ShortestPathMap * pathmap = NULL;
@@ -166,13 +176,13 @@ void PF_IPS::start() {
 		if ( !mappng_bounds_provided ) {
 			log_e("Must provide bounds of map PNG file provided");
 			error = 1;
-			return;
+			goto error;
 		}
 
 		if ( minx >= maxx || miny >= maxy ) {
 			log_e("Max-x or max-y bigger than max-x/min-y\nMake sure format is: minx,maxx,miny,maxy");
 			error = 1;
-			return;
+			goto error;
 		}
 
 		double bounds[4] = { minx, maxx, miny, maxy };
@@ -190,7 +200,7 @@ void PF_IPS::start() {
 				if ( !moverwrite ) {
 					log_e("Map cache invalid and moverwrite FALSE, aborting.");
 					error = 1;
-					return;
+					goto error;
 				}
 				log_i("Map cache invalid and will be recalculated.");
 			}
@@ -222,9 +232,9 @@ void PF_IPS::start() {
 			
 			log_i("Thresholding");
 			vector<vector<bool>> obsmap_th(obsmap.size());
-			for ( int j = 0; j < obsmap.size(); j++ ) {
+			for ( size_t j = 0; j < obsmap.size(); j++ ) {
 				obsmap_th[j].resize(obsmap[j].size());
-				for ( int i = 0; i < obsmap[j].size(); i++ ) {
+				for ( size_t i = 0; i < obsmap[j].size(); i++ ) {
 					obsmap_th[j][i] = obsmap[j][i] > 0.2;
 				}
 			}
@@ -242,7 +252,12 @@ void PF_IPS::start() {
 		if ( mapcache_fname == "" ) {
 			log_i("Warning: Map undefined ( no cache or png supplied )");	
 		} else { // load everything from mapcache
-
+			pathmap = ShortestPathMap::loadFromCache(mapcache_fname);
+			if (!pathmap) {
+				error = 1;
+				log_e("Error: Couldn't load pathmap");
+				goto error;
+			}
 		}
 	}
 
@@ -257,9 +272,9 @@ void PF_IPS::start() {
 
 	}
 
+	error:
 	// clean-up
-	while(!rssi_data.empty()) delete rssi_data.back(), rssi_data.pop_back();
-	while(!xy_data.empty()) delete xy_data.back(), xy_data.pop_back();
+	;
 }
 
 void PF_IPS::printHelp() {
@@ -267,10 +282,8 @@ void PF_IPS::printHelp() {
 	      "Kevin Weekly\n"
 		  "-----------------------------------------\n"
 		  "PF Options\n"
-		  "\t-rssiin    : Input file of RSSI timeseries\n"
 		  "\t-rssiparam : RSSI input parameters\n"
 		  "\n"
-		  "\t-xyloc     : Input file of XY localization system\n"
 		  "\t-xyparam   : XY parameters\n"
 		  "\n"
 		  "\t-mappng    : Color-coded map file of space\n"

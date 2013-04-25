@@ -29,7 +29,7 @@ void WindowedFilter::filter_into(TimeSeries * ts, TimeSeries * out) {
 
 	while(ts->t[ipos++] < tpos);
 	tpos = ts->t[ipos];
-	int start, end;
+	size_t start, end;
 	start = end = ipos;
 	while(end < ts->t.size()) {
 		start = end = ipos;

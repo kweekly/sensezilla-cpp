@@ -61,10 +61,10 @@ hexcoords HexMap::nearestHex(xycoords xy ) const {
 
 vector<vector<double>> HexMap::interpolateXYData( const vector<vector<double>> &data, const double dbounds[4] )  const {
 	vector<vector <double>> retv(rows, vector<double> (cols, 0.0));
-	vector<vector <int>> retc(rows, vector<int>(cols, 0.0));
+	vector<vector <int>> retc(rows, vector<int>(cols, 0));
 
-	for ( int xi = 0; xi < data[0].size(); xi++ ) {
-		for ( int yi = 0; yi < data.size(); yi++  ) {
+	for ( size_t xi = 0; xi < data[0].size(); xi++ ) {
+		for ( size_t yi = 0; yi < data.size(); yi++  ) {
 			xycoords xy = {dbounds[XMIN] + (double)xi/(data[0].size()-1) * (dbounds[XMAX]-dbounds[XMIN]),
 							dbounds[YMIN] + (double)yi/(data[0].size()-1) * (dbounds[YMAX]-dbounds[YMIN])};
 			hexcoords hex = nearestHex( xy );
@@ -90,10 +90,10 @@ vector<vector<double>> HexMap::interpolateXYData( const vector<vector<double>> &
 
 vector<vector<double>> HexMap::interpolateXYData( const vector<vector<double>> &data, const vector<double> &xpoints, const vector<double> &ypoints )  const {
 	vector<vector <double>> retv(rows, vector<double> (cols, 0.0));
-	vector<vector <int>> retc(rows, vector<int>(cols, 0.0));
+	vector<vector <int>> retc(rows, vector<int>(cols, 0));
 
-	for ( int xi = 0; xi < xpoints.size(); xi++ ) {
-		for ( int yi = 0; yi < ypoints.size(); yi++  ) {
+	for ( size_t xi = 0; xi < xpoints.size(); xi++ ) {
+		for ( size_t yi = 0; yi < ypoints.size(); yi++  ) {
 			xycoords xy = {xpoints[xi],ypoints[yi]};
 			hexcoords hex = nearestHex( xy );
 

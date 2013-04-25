@@ -8,6 +8,7 @@
 #ifndef ALL_H_
 #define ALL_H_
 
+#define _CRT_SECURE_NO_WARNINGS
 #define _USE_MATH_DEFINES
 // C libraries
 #include <stdlib.h>
@@ -26,6 +27,8 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <set>
+#include <map>
 using namespace std;
 
 // my files
@@ -34,6 +37,7 @@ using namespace std;
 #include "util/CSVLoader.h"
 #include "util/EventSeries.h"
 #include "util/PNGLoader.h"
+#include "util/ConfigurationLoader.h"
 
 #include "programs/AbstractProgram.h"
 #include "programs/AbstractFilterProgram.h"

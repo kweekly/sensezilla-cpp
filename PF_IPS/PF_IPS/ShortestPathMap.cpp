@@ -112,7 +112,7 @@ rderr2:
 	delete retval;
 rderr:
 	log_e("Read Error. Abort.");
-error1:
+
 	fclose(fin);
 	return NULL;
 }
@@ -162,90 +162,65 @@ error1:
 	return NULL;
 }
 
+void ShortestPathMap::_addCheckObs( const vector<vector<bool>> &hexdata, int columns, set<int> *set, int hi, int hj ) {
+		if ( hi >= 0 && hi < (int)(hexdata[0].size()) && hj > 0 && hj < (int)(hexdata.size()) && !hexdata[hj][hi] ) {
+			set->insert(hj*columns + hi);
+		}
+}
+
+set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, int position, const HexMap & hmap, int hexmovespeed ) {
+	set<int> tocheck,retval;
+	tocheck.insert(position);
+	set<int> candidates;
+
+	for ( int c = 0; c < hexmovespeed; c++ ) {
+		candidates.clear();
+		// add all neighboring nodes
+		for (set<int>::iterator i = tocheck.begin(); i != tocheck.end(); i++) {
+			int pcheck = * i;
+			int hi = pcheck % hmap.getColumns();
+			int hj = pcheck / hmap.getColumns();
+			if (hi % 2) { // odd
+				_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi + 1, hj - 1 );
+				_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi - 1, hj - 1 );
+			} else { // even
+				_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi + 1, hj + 1);
+				_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi - 1, hj + 1 );
+			}
+			_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi - 1, hj );
+			_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi , hj - 1 );
+			_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi + 1, hj );
+			_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi, hj + 1 );			
+
+			// retval = union(retval, tocheck)
+			retval.insert(pcheck);
+		}
+
+		// tocheck = diff(candidates,retval)
+		tocheck.clear();
+		set_difference(candidates.begin(),candidates.end(),retval.begin(),retval.end(),std::inserter(tocheck,tocheck.end()));
+	}
+	return retval;	
+}
+
 ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<bool>> &hexdata, const string pngname, const HexMap hmap, int hexmovespeed) {
 	ShortestPathMap * retval = new ShortestPathMap(hmap);
 	retval->pngfname = pngname;
 	retval->hexmovespeed = hexmovespeed;
 
 	int nidx = hmap.getRows() * hmap.getColumns();
-	int ** dist = new int*[nidx];
-	if ( !dist ) {
-		log_e("Error allocating calculation matrices");
-		return NULL;
-	}
-	for ( int c = 0; c < nidx; c++ ) {
-		dist[c] = new int[nidx];
-		if ( !dist[c]) {
-			log_e("Error allocating calculation matrices");
-			return NULL;
-		}
-		for ( int d = 0; d < nidx; d++ ) {
-			if ( c == d ) {
-				dist[c][d] = 0;
-			} else {
-				dist[c][d] = -1;
-			}
-		}
-	}
 
-	// initialize "edges"
-	for (int c = 0; c < nidx; c++ ) {
-		hexcoords hc = retval->idx2Hex(c);
-		if ( hc.i > 0 ) {
-			dist[c][c-1] = 1;  // (-1,0)
-			if ( hc.j > 0 && !(hc.i % 2))
-				dist[c][c - 1 - hmap.getColumns()] = 1; // (-1,-1)
-			else if ( hc.j < hmap.getRows() - 1 && (hc.i % 2))
-				dist[c][c - 1 + hmap.getColumns()] = 1; // (-1,+1)
-		}
-
-		if ( hc.j > 0 )
-			dist[c][c-hmap.getColumns()] = 1; //(0,-1)
-		if ( hc.j < hmap.getRows() - 1 )
-			dist[c][c+hmap.getColumns()] = 1; //(0,+1)
-
-		if ( hc.i < hmap.getColumns() - 1 ) {
-			dist[c][c+1] = 1; // (+1,0)
-			if ( hc.j > 0 && !(hc.i % 2) )
-				dist[c][c + 1 - hmap.getColumns()] = 1; // (+1,-1)
-			else if ( hc.j < hmap.getRows() - 1 && (hc.i % 2) )
-				dist[c][c + 1 + hmap.getColumns()] = 1; // (+1,+1)
-		}
-	}
-
-	// remove all edges to/from obstacles
-	for ( int row = 0; row < hmap.getRows(); row++ ) {
-		for ( int col = 0; col < hmap.getColumns(); col++ ) {
-			if ( hexdata[row][col] ) {
-				for ( int i = 0; i < nidx; i++ ) {
-					dist[col + row*hmap.getColumns()][i] = dist[i][col + row*hmap.getColumns()] = -1;
-				}
-			}
-		}
-	}
-
-	//ready for (limited) floyd warshall
-	for (int k = 0; k < nidx; k++ ) {
-		for ( int i = 0; i < nidx; i++ ) {
-			if ( i != k && dist[i][k] < hexmovespeed && dist[i][k] != -1 )
-				for ( int j = 0; j < nidx; j++ ) {
-					if ( (dist[i][k] + dist[k][j] < dist[i][j] || dist[i][j] == -1) && dist[i][k] + dist[k][j] <= hexmovespeed && dist[k][j] != -1)
-						dist[i][j] = dist[i][k] + dist[k][j];
-				}
-		}
-	}
-
-	// now populate cache
+	// calculate cache
 	retval->map.reserve(nidx);
 	for ( int k = 0; k < nidx; k++ ) {
-		vector<int> subvec;
-		for ( int j = 0; j < nidx; j++ ) {
-			if ( dist[k][j] != -1 ) {
-				subvec.push_back(j);
-			}
+		if ( k % 10000 == 0 ) {
+			log_i("%d of %d cells completed",k,nidx);
 		}
-		subvec.shrink_to_fit();
-		retval->map.push_back(subvec);
+		vector<int> donevec;
+		set<int> nset = _nearestHexes(hexdata, k, hmap, hexmovespeed);
+		donevec.assign(nset.begin(),nset.end());
+		donevec.shrink_to_fit();
+		retval->map.push_back(donevec);
 	}
 	retval->map.shrink_to_fit();
 	return retval;

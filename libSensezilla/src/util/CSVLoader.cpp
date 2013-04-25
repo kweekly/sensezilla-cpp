@@ -40,7 +40,7 @@ vector<TimeSeries *> CSVLoader::loadMultiTSfromCSV(string fname) {
 			outv[0]->metadata.push_back(line.substr(1));
 		} else {
 			line = line.append(",");
-			int lastpos = 0, pos = 0, idx = 0;
+			size_t lastpos = 0, pos = 0, idx = 0;
 			double time = atof(line.substr(0,lastpos = line.find(',')).c_str());
 			pos = line.find(',',lastpos+1);
 			while ( pos != string::npos ) {
@@ -78,13 +78,13 @@ void CSVLoader::writeMultiTStoCSV(string fname,const vector<TimeSeries *> &ts, i
 	fout.precision(precision);
 
 	log_i("Writing CSV file: %s",fname.c_str());
-	for (int c = 0; c < ts[0]->metadata.size(); c++ ) {
+	for (size_t c = 0; c < ts[0]->metadata.size(); c++ ) {
 		fout << "#" << ts[0]->metadata[c] << endl;
 	}
 
-	for ( int c = 0; c < ts[0]->t.size(); c++ ) {
+	for ( size_t c = 0; c < ts[0]->t.size(); c++ ) {
 		fout << ts[0]->t[c] << ",";
-		for ( int d = 0; d < ts.size(); d++ ) {
+		for ( size_t d = 0; d < ts.size(); d++ ) {
 			if ( d < ts.size() - 1 ) {
 				if ( fabs(ts[d]->v[c]) > 1e-50 )
 					fout << 0 << ",";

@@ -6,6 +6,7 @@
 #include "ShortestPathMap.h"
 #include "HexMap.h"
 #include "PF_IPS.h"
+#include "SIRFilter.h"
 
 #include <thread>
 
@@ -17,6 +18,7 @@ PF_IPS::PF_IPS() {
 	hexradius = 0.5;
 	movespeed = 1.5;
 	nParticles = 1000;
+	time_interval = 5.0;
 	pathmap = NULL;
 }
 PF_IPS::~PF_IPS() {}
@@ -79,6 +81,13 @@ mberror:
 			log_e("Error in parsing -particles");
 		}
 		return true;
+	}  else if ( opt == "dt" ) {
+		try{
+			time_interval = std::stod(val);
+		} catch (exception e) {
+			log_e("Error parsing dt");
+		}
+		return true;
 	} else if ( opt == "movespeed") {
 		try {
 			movespeed = std::stod(val);
@@ -116,10 +125,8 @@ void PF_IPS::_loadRSSIData() {
 		sense_ref_Y = rssi_config[string("sensors")][string("refY")].asDouble();
 		sense_ref_Z = rssi_config[string("sensors")][string("refZ")].asDouble();
 
-		tag_ref_X = rssi_config[string("tags")][string("refX")].asDouble();
-		tag_ref_Y = rssi_config[string("tags")][string("refY")].asDouble();
-		tag_ref_Z = rssi_config[string("tags")][string("refZ")].asDouble();
-
+		vector<vector<TimeSeries *>> allrssi;
+		int sidx = 0;
 		for ( vector<ConfigurationValue>::iterator iter = rssi_config[string("sensors")][string("active_list")].begin(); iter != rssi_config[string("sensors")][string("active_list")].end(); iter++) {
 			string id = (*iter).asString();
 			RSSISensor sense;
@@ -128,34 +135,72 @@ void PF_IPS::_loadRSSIData() {
 			sense.pos.x = std::stof(posstr.substr(0,posstr.find(' ')));
 			sense.pos.y = std::stof(posstr.substr(posstr.rfind(' ')+1));
 			log_i("RFID sensor %s at (%.2f, %.2f)",sense.IDstr.c_str(),sense.pos.x,sense.pos.y);
+			
+			vector<TimeSeries *> gaussts = CSVLoader::loadMultiTSfromCSV(rssi_basedir+string("gaussparams_s")+id+string(".csv"));
+			sense.gauss_calib_r = gaussts[0]->t;
+			sense.gauss_calib_mu = gaussts[0]->v;
+			sense.gauss_calib_sigma = gaussts[1]->v;
+			delete gaussts[0];
+			delete gaussts[1];
+
 			sensors.push_back( sense );
+			allrssi.push_back(vector<TimeSeries *>());
+			for ( vector<ConfigurationValue>::iterator tag_iter = rssi_config[string("tags")][string("active_list")].begin(); tag_iter != rssi_config[string("tags")][string("active_list")].end(); tag_iter++) {
+				string tid = (*tag_iter).asString();
+				TimeSeries * rssits = CSVLoader::loadTSfromCSV(rssi_basedir+string("RSSI_t")+tid+string("_s")+id+string(".csv"));
+				allrssi[sidx].push_back(rssits);
+			}
+			sidx++;
 		}
 
-		for ( vector<ConfigurationValue>::iterator iter = rssi_config[string("tags")][string("reference_list")].begin(); iter != rssi_config[string("tags")][string("reference_list")].end(); iter++) {
-			string id = (*iter).asString();
-			RSSITag tag;
-			tag.IDstr = id;
-			tag.isref = true;
-			string posstr = rssi_config[string("tags")][string("pos_")+id].asString();
-			tag.pos.x = std::stof(posstr.substr(0,posstr.find(' ')));
-			tag.pos.y = std::stof(posstr.substr(posstr.rfind(' ')+1));
-			log_i("RFID reference tag %s at (%.2f, %.2f)",tag.IDstr.c_str(),tag.pos.x,tag.pos.y);
-			reference_tags.push_back( tag );
-		}
-
-		rssi_refdata = vector<vector<TimeSeries *>>(reference_tags.size(),vector<TimeSeries *>(sensors.size(),NULL));
-		log_i("Loading reference tag dataset...");
-		for ( size_t refi = 0; refi < reference_tags.size(); refi++ ) {
-			for ( size_t seni = 0; seni < sensors.size(); seni++ ) {
-				string fn = rssi_config[string("rssidata")][reference_tags[refi].IDstr + "_" + sensors[seni].IDstr].asString();
-				if ( fn.size() == 0 ) {
-					log_e("\tNo data provided for tag:%s sensor:%s",reference_tags[refi].IDstr,sensors[seni].IDstr);
-				} else {
-					fn = rssi_basedir + fn;
-					log_i("\tLoading %s",fn.c_str());
-					rssi_refdata[refi][seni] = CSVLoader::loadTSfromCSV(fn);
+		// finding min and max times
+		double mint=9e99, maxt=-9e99;
+		for ( int i = 0; i < allrssi.size(); i++) {
+			for ( int j = 0; j < allrssi[i].size(); j++) {
+				if ( allrssi[i][j] == NULL || allrssi[i][j]->t.size() == 0 ) continue;
+				if ( allrssi[i][j]->t[0] < mint ) {
+					mint = allrssi[i][j]->t[0];
+				}
+				if ( allrssi[i][j]->t.back() > maxt ) {
+					maxt = allrssi[i][j]->t.back();
 				}
 			}
+		}
+		mint /= 1000;
+		maxt /= 1000;
+		vector<double> T;
+		T.reserve((int)((maxt-mint)/time_interval) + 1);
+		for ( double t = mint; t <= maxt; t += time_interval) {
+			T.push_back(t);
+		}
+		log_i("Have sensor data from t=%.0f to t=%.0f for a total of %d points (dt=%.2f)",mint,maxt,T.size(),time_interval);
+
+		for ( int i = 0; i < allrssi.size(); i++ ) {
+			log_i("Interpolating data for sensor %d",i);
+			int n = 0;
+			bool init = false;
+			for ( int j = 0; j < allrssi[i].size(); j++ ) {
+				if ( allrssi[i][j] == NULL || allrssi[i][j]->t.size() < 5 ) continue;
+				if ( !init ) {
+					rssi_data.push_back(allrssi[i][j]->interp(T));
+					init = true;
+				} else {
+					*(rssi_data.back()) += *(allrssi[i][j]->interp(T));
+				}
+				n++;
+			}
+
+			*(rssi_data.back()) /= n;
+		}
+
+error:
+		//cleanup
+		while (allrssi.size() > 0){
+			while(allrssi.back().size() > 0) {
+				delete allrssi.back().back();
+				allrssi.back().pop_back();
+			}
+			allrssi.pop_back();
 		}
 }
 
@@ -240,7 +285,6 @@ void PF_IPS::_loadMapPNG() {
 				pathmap->saveToCache(mapcache_fname);
 			}
 		}
-
 	} else {
 		if ( mapcache_fname == "" ) {
 			log_i("Warning: Map undefined ( no cache or png supplied )");	
@@ -264,7 +308,6 @@ void PF_IPS::start() {
 	if ( use_rssi ) {
 		_loadRSSIData();
 		if (error) goto error;
-		_calibrate_RSSI_system();
 	}
 
 	if ( use_xy ) {
@@ -280,24 +323,38 @@ void PF_IPS::start() {
 	_loadMapPNG();
 	if (error) goto error;
 
+	{
 	// do the processing
+	log_i("\nGenerating initial States");
+	vector<State> X0;
+	for ( int c = 0; c < nParticles; c++ ) {
+		State s;
+		s.x = rand()/(double)(RAND_MAX) * (maxx-minx) + minx;
+		s.y = rand()/(double)(RAND_MAX) * (maxy-miny) + miny;
+		X0.push_back(s);
+	}
 
-
+	Params p;
+	p.context = this;
+	SIRFilter<State,Observation,Params> filter(X0,PF_IPS::transition_model,PF_IPS::observation_model,p);
+	Observation o;
+	for ( int step_no = 0; step_no < rssi_data[0]->t.size(); step_no++ ) {
+		o.rfid_system_rssi_measurements.clear();
+		for ( int sid = 0; sid < rssi_data.size(); sid++ ) {
+			o.rfid_system_rssi_measurements.push_back(rssi_data[sid]->v[step_no]);
+		}
+		log_i("Step %d of %d",step_no+1,rssi_data[0]->t.size());
+		filter.step(o);
+	}
 
 	if (stateout_fname != "") {
 
 	}
+	}
 
 	error:
 	// clean-up
-	while ( rssi_refdata.size() > 0 ) { 
-		vector<TimeSeries *> subvec = rssi_refdata.back();
-		while ( subvec.size() > 0 ) {
-			delete subvec.back();
-			subvec.pop_back();
-		}
-		rssi_refdata.pop_back();
-	}
+	;
 }
 
 void PF_IPS::printHelp() {

@@ -13,19 +13,26 @@ TimeSeries * CSVLoader::loadTSfromCSV(string fname) {
 }
 
 TimeSeries * CSVLoader::loadTSfromCSV(string fname,int column) {
-	return loadMultiTSfromCSV(fname)[column];
+	vector<TimeSeries*> v = loadMultiTSfromCSV(fname);
+	if ( column < v.size()) {
+		return v[column];
+	} else {
+		log_e("Requested invalid column");
+		return NULL;
+	}
 }
 
 vector<TimeSeries *> CSVLoader::loadMultiTSfromCSV(string fname) {
 	ifstream fin(fname.c_str());
 	string line;
+	vector<TimeSeries *> outv;
 	if ( !fin.is_open() ) {
 		log_e("Cannot open file %s for reading: %s",fname.c_str(), strerror(errno));
-		exit(2);
+		return outv;
 	}
-	log_i("Reading CSV File: %s",fname.c_str());
+	//log_i("Reading CSV File: %s",fname.c_str());
 
-	vector<TimeSeries *> outv;
+	
 	outv.push_back(new TimeSeries());
 	while(fin.good()) {
 		getline(fin, line);
@@ -58,7 +65,7 @@ vector<TimeSeries *> CSVLoader::loadMultiTSfromCSV(string fname) {
 	}
 	fin.close();
 
-	log_i("Read %d points in %d columns.",outv[0]->t.size(),outv.size());
+	//log_i("Read %d points in %d columns.",outv[0]->t.size(),outv.size());
 	return outv;
 }
 
@@ -72,7 +79,7 @@ void CSVLoader::writeMultiTStoCSV(string fname,const vector<TimeSeries *> &ts, i
 	string line;
 	if ( !fout.is_open() ) {
 		log_e("Cannot open file %s for writing: %s",fname.c_str(),strerror(errno));
-		exit(2);
+		return;
 	}
 
 	fout.precision(precision);

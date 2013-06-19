@@ -83,10 +83,14 @@ TimeSeries * TimeSeries::interp(vector<double> times) {
 	for ( size_t tidx = 0; tidx < times.size(); tidx++) {
 		double time = times[tidx];
 		while ( idx <= t.size()-1 && time < t[idx] ) idx++;
-		if ( idx == 0 ) {// uh-oh, before time, use first two points
-			idx++;
+		double val;
+		if ( idx == 0 ) {// uh-oh, before time, use first point
+			val = v[0];
+		} else if ( idx >= t.size() - 1 ) { // uh-oh, after time, use last point
+			val = v.back();
+		} else {
+			val = v[idx-1] + (time-t[idx-1])*(v[idx]-v[idx-1])/(t[idx]-t[idx-1]);
 		}
-		double val = v[idx-1] + (time-t[idx-1])*(v[idx]-v[idx-1])/(t[idx]-t[idx-1]);
 		ret->v.push_back(val);
 	}
 

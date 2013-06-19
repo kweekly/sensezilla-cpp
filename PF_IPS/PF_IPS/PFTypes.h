@@ -13,14 +13,28 @@ struct hexcoords {
 struct RSSISensor {
 	string IDstr;
 	xycoords pos;
+
+	vector<double> gauss_calib_r;
+	vector<double> gauss_calib_mu;
+	vector<double> gauss_calib_sigma;
 };
 
-struct RSSITag { 
-	string IDstr;
-	int id;
-	bool isref;
+class PF_IPS;
 
-	xycoords pos;
+class State {
+public:
+	double x;
+	double y;
+};
+
+class Observation {
+public:
+	vector<double> rfid_system_rssi_measurements;
+};
+
+class Params {
+public:
+	PF_IPS * context;
 };
 
 #endif

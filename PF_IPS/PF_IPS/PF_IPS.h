@@ -16,10 +16,11 @@ public:
 
 private:
 	// Algorithms
-	void _calibrate_RSSI_system();
-	
-	
-	
+	static void transition_model(State & state, Params & params);
+	static double observation_model(const State & in_state, const Observation & measurement, Params & params);
+
+
+
 	void _loadRSSIData();
 	void _loadXYData();
 	void _loadMapPNG();
@@ -41,40 +42,25 @@ private:
 	double movespeed;
 	
 	int nParticles;
+	double time_interval;
 
 	string rssiparam_fname, xyparam_fname, trajout_fname, partout_fname;
 	string mappng_fname, mapcache_fname, statein_fname, stateout_fname;
 
 	// data members
+	// Parameters
 	map<string,map<string, ConfigurationValue>> xy_config;	
 	map<string,map<string, ConfigurationValue>> rssi_config;
 	vector<RSSISensor> sensors;
-	vector<RSSITag> reference_tags;
-	vector<vector<TimeSeries *>> rssi_refdata;
+
 	ShortestPathMap * pathmap;
 
 	string rssi_basedir;
 
-	double tag_ref_X;
-	double tag_ref_Y;
-	double tag_ref_Z;
-
 	double sense_ref_X;
 	double sense_ref_Y;
 	double sense_ref_Z;
-};
 
-
-class State {
-public:
-	double x;
-	double y;
-};
-
-class Observation {
-	vector<double> rfid_system_rssi_measurements;
-};
-
-class Params {
-	PF_IPS * context;
+	// Sensor Data
+	vector<TimeSeries *> rssi_data;
 };

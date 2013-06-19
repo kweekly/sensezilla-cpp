@@ -98,7 +98,6 @@
     <ClCompile Include="HexMap.cpp" />
     <ClCompile Include="PF_IPS.cpp" />
     <ClCompile Include="ShortestPathMap.cpp" />
-    <ClCompile Include="SIRFilter.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

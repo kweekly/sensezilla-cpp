@@ -87,14 +87,18 @@
   <ItemGroup>
     <ClInclude Include="HexMap.h" />
     <ClInclude Include="PFTypes.h" />
+    <ClInclude Include="PF_IPS.h" />
     <ClInclude Include="ShortestPathMap.h" />
+    <ClInclude Include="SIRFilter.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Algorithms.cpp" />
     <ClCompile Include="HexMap.cpp" />
     <ClCompile Include="PF_IPS.cpp" />
     <ClCompile Include="ShortestPathMap.cpp" />
+    <ClCompile Include="SIRFilter.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -5,47 +5,19 @@
 #include "all.h"
 #include "ShortestPathMap.h"
 #include "HexMap.h"
+#include "PF_IPS.h"
 
 #include <thread>
 
 int error = 0;
 
-class PF_IPS : public AbstractProgram {
-public:
-	PF_IPS();
-	~PF_IPS();
-	
-	bool processCLOption( string opt, string val );
-	void start();
-	void printHelp();
-
-private:
-	bool disp_help;
-
-	bool use_rssi;
-	bool use_xy;
-	bool use_trajout;
-	bool use_partout;
-	
-	bool use_mappng;
-	bool mappng_bounds_provided;
-	bool moverwrite;
-
-	double minx,miny,maxx,maxy;
-	double hexradius;
-	double movespeed;
-	
-	int nParticles;
-
-	string rssiparam_fname, xyparam_fname, trajout_fname, partout_fname;
-	string mappng_fname, mapcache_fname, statein_fname, stateout_fname;
-};
 
 PF_IPS::PF_IPS() {
 	disp_help = use_rssi = use_xy = use_trajout = use_partout = use_mappng = mappng_bounds_provided = moverwrite = false;
 	hexradius = 0.5;
 	movespeed = 1.5;
 	nParticles = 1000;
+	pathmap = NULL;
 }
 PF_IPS::~PF_IPS() {}
 
@@ -128,20 +100,25 @@ mberror:
 	return AbstractProgram::processCLOption(opt,val);
 }
 
-void PF_IPS::start() {
-	if ( disp_help ) {
-		printHelp();
-		return;
-	}
-
-	map<string,map<string, ConfigurationValue>> xy_config;
-	
-	map<string,map<string, ConfigurationValue>> rssi_config;
-	vector<RSSISensor> sensors;
-	vector<RSSITag> reference_tags;
-
-	if ( use_rssi ) {
+void PF_IPS::_loadRSSIData() {
 		rssi_config = ConfigurationLoader::readConfiguration(rssiparam_fname);
+
+		rssi_basedir.assign("./");
+		size_t pos1 = rssiparam_fname.rfind("\\");
+		size_t pos2 = rssiparam_fname.rfind("/");
+		if ( pos1 < pos2 && pos2 != string::npos) {
+			rssi_basedir = rssiparam_fname.substr( 0, pos2 + 1 );
+		} else if ( pos2 < pos1 && pos1 != string::npos ) {
+			rssi_basedir = rssiparam_fname.substr( 0, pos1 + 1 );
+		} 
+
+		sense_ref_X = rssi_config[string("sensors")][string("refX")].asDouble();
+		sense_ref_Y = rssi_config[string("sensors")][string("refY")].asDouble();
+		sense_ref_Z = rssi_config[string("sensors")][string("refZ")].asDouble();
+
+		tag_ref_X = rssi_config[string("tags")][string("refX")].asDouble();
+		tag_ref_Y = rssi_config[string("tags")][string("refY")].asDouble();
+		tag_ref_Z = rssi_config[string("tags")][string("refZ")].asDouble();
 
 		for ( vector<ConfigurationValue>::iterator iter = rssi_config[string("sensors")][string("active_list")].begin(); iter != rssi_config[string("sensors")][string("active_list")].end(); iter++) {
 			string id = (*iter).asString();
@@ -163,26 +140,42 @@ void PF_IPS::start() {
 			tag.pos.x = std::stof(posstr.substr(0,posstr.find(' ')));
 			tag.pos.y = std::stof(posstr.substr(posstr.rfind(' ')+1));
 			log_i("RFID reference tag %s at (%.2f, %.2f)",tag.IDstr.c_str(),tag.pos.x,tag.pos.y);
-			reference_tags.push_back( tag );			
+			reference_tags.push_back( tag );
 		}
-	}
-	if ( use_xy ) {
-		xy_config = ConfigurationLoader::readConfiguration(xyparam_fname);
-	}
 
-	ShortestPathMap * pathmap = NULL;
+		rssi_refdata = vector<vector<TimeSeries *>>(reference_tags.size(),vector<TimeSeries *>(sensors.size(),NULL));
+		log_i("Loading reference tag dataset...");
+		for ( size_t refi = 0; refi < reference_tags.size(); refi++ ) {
+			for ( size_t seni = 0; seni < sensors.size(); seni++ ) {
+				string fn = rssi_config[string("rssidata")][reference_tags[refi].IDstr + "_" + sensors[seni].IDstr].asString();
+				if ( fn.size() == 0 ) {
+					log_e("\tNo data provided for tag:%s sensor:%s",reference_tags[refi].IDstr,sensors[seni].IDstr);
+				} else {
+					fn = rssi_basedir + fn;
+					log_i("\tLoading %s",fn.c_str());
+					rssi_refdata[refi][seni] = CSVLoader::loadTSfromCSV(fn);
+				}
+			}
+		}
+}
 
+void PF_IPS::_loadXYData() {
+	xy_config = ConfigurationLoader::readConfiguration(xyparam_fname);
+
+}
+
+void PF_IPS::_loadMapPNG() {
 	if ( use_mappng ) {
 		if ( !mappng_bounds_provided ) {
 			log_e("Must provide bounds of map PNG file provided");
 			error = 1;
-			goto error;
+			return;
 		}
 
 		if ( minx >= maxx || miny >= maxy ) {
 			log_e("Max-x or max-y bigger than max-x/min-y\nMake sure format is: minx,maxx,miny,maxy");
 			error = 1;
-			goto error;
+			return;
 		}
 
 		double bounds[4] = { minx, maxx, miny, maxy };
@@ -200,7 +193,7 @@ void PF_IPS::start() {
 				if ( !moverwrite ) {
 					log_e("Map cache invalid and moverwrite FALSE, aborting.");
 					error = 1;
-					goto error;
+					return;
 				}
 				log_i("Map cache invalid and will be recalculated.");
 			}
@@ -256,17 +249,40 @@ void PF_IPS::start() {
 			if (!pathmap) {
 				error = 1;
 				log_e("Error: Couldn't load pathmap");
-				goto error;
+				return;
 			}
 		}
 	}
+}
+
+void PF_IPS::start() {
+	if ( disp_help ) {
+		printHelp();
+		return;
+	}
+
+	if ( use_rssi ) {
+		_loadRSSIData();
+		if (error) goto error;
+		_calibrate_RSSI_system();
+	}
+
+	if ( use_xy ) {
+		_loadXYData();
+		if (error) goto error;
+	}
+
 
 	if (statein_fname != "") {
 
 	}
 
+	_loadMapPNG();
+	if (error) goto error;
 
 	// do the processing
+
+
 
 	if (stateout_fname != "") {
 
@@ -274,7 +290,14 @@ void PF_IPS::start() {
 
 	error:
 	// clean-up
-	;
+	while ( rssi_refdata.size() > 0 ) { 
+		vector<TimeSeries *> subvec = rssi_refdata.back();
+		while ( subvec.size() > 0 ) {
+			delete subvec.back();
+			subvec.pop_back();
+		}
+		rssi_refdata.pop_back();
+	}
 }
 
 void PF_IPS::printHelp() {

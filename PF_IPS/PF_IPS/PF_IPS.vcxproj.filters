@@ -33,6 +33,12 @@
     <ClInclude Include="ShortestPathMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PF_IPS.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SIRFilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -45,6 +51,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ShortestPathMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SIRFilter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

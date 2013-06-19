@@ -16,7 +16,6 @@ struct RSSISensor {
 };
 
 struct RSSITag { 
-
 	string IDstr;
 	int id;
 	bool isref;

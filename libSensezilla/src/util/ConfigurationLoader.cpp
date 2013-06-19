@@ -76,6 +76,10 @@ map<string,map<string, ConfigurationValue>> ConfigurationLoader::readConfigurati
 
 void ConfigurationLoader::_readConfiguration(string fname, map<string,map<string, ConfigurationValue>> &retval ) {
 	ifstream fin(fname);
+	if (!fin.is_open()) {
+		log_e("Error: Cannot open %s",fname.c_str());
+		return;
+	}
 
 	match_results<string::const_iterator> result;
 
@@ -112,7 +116,7 @@ void ConfigurationLoader::_readConfiguration(string fname, map<string,map<string
 		// include another file
 		if ( regex_match(line,result,incexpr) ) {
 			string f2 = result[1];
-			if ( f2.find("/") == string::npos && f2.find("\\") == string::npos ) {
+			if ( f2.find("/") != 0 && f2.find("\\") != 0 ) {
 				size_t pos1 = fname.rfind("\\");
 				size_t pos2 = fname.rfind("/");
 				if ( pos1 < pos2 && pos2 != string::npos) {

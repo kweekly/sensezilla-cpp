@@ -8,10 +8,10 @@ HexMap::HexMap( const double pbounds[4], double hexradius, double nHexOvercovera
 
 	for ( int c = 0; c < 4; c++ ) this->bounds[c] = pbounds[c];
 
-	this->bounds[XMIN] -= nHexOvercoverage * hexradius / 2;
-	this->bounds[XMAX] += nHexOvercoverage * hexradius / 2;
-	this->bounds[YMIN] -= nHexOvercoverage * hexradius / 2;
-	this->bounds[YMAX] += nHexOvercoverage * hexradius / 2;
+	this->bounds[XMIN] -= nHexOvercoverage * hexradius * 2;
+	this->bounds[XMAX] += nHexOvercoverage * hexradius * 2;
+	this->bounds[YMIN] -= nHexOvercoverage * hexradius * 2;
+	this->bounds[YMAX] += nHexOvercoverage * hexradius * 2;
 
 	this->R = hexradius;
 	this->H = 2*R*sin(60.0*M_PI / 180.);
@@ -19,7 +19,7 @@ HexMap::HexMap( const double pbounds[4], double hexradius, double nHexOvercovera
 	this->W = 2.*R;
 
 	cols = (int)((this->bounds[XMAX] - this->bounds[XMIN])/S) + 1;
-	rows = (int)(((this->bounds[YMAX] - this->bounds[YMIN]) - H/2)/H) + 1;
+	rows = (int)(((this->bounds[YMAX] - this->bounds[YMIN]) + H/2)/H) + 1;
 	if ( cols <= 0 || rows <= 0 ) {
 		log_e("Error: Hex tiles are to big to fit in x/y bounds!");
 	}
@@ -54,8 +54,14 @@ xycoords HexMap::getCenter( hexcoords hex ) const {
 
 hexcoords HexMap::nearestHex(xycoords xy ) const {
 	hexcoords retval;
-	retval.i = (int)((xy.x - bounds[XMIN])/S);
-	retval.j = (int)ceil((xy.y - bounds[YMIN] + (retval.i%2)*H/2 + H/2)/H);
+	xy.x -= bounds[XMIN];
+	xy.y -= bounds[YMIN];
+	retval.i = (int)(xy.x/S);
+	retval.j = (int)ceil((xy.y + (retval.i%2)*H/2 + H/2)/H);
+	if (xy.x <= R*abs(0.5 - xy.y/H) ){
+		retval.i -= 1;
+		retval.j -= (retval.i%2) + (xy.y > H/2);
+	}
 	return retval;
 }
 
@@ -66,7 +72,7 @@ vector<vector<double>> HexMap::interpolateXYData( const vector<vector<double>> &
 	for ( size_t xi = 0; xi < data[0].size(); xi++ ) {
 		for ( size_t yi = 0; yi < data.size(); yi++  ) {
 			xycoords xy = {dbounds[XMIN] + (double)xi/(data[0].size()-1) * (dbounds[XMAX]-dbounds[XMIN]),
-							dbounds[YMIN] + (double)yi/(data[0].size()-1) * (dbounds[YMAX]-dbounds[YMIN])};
+							dbounds[YMIN] + (double)yi/(data.size()-1) * (dbounds[YMAX]-dbounds[YMIN])};
 			hexcoords hex = nearestHex( xy );
 
 			if ( hex.j >= rows || hex.i>= cols || hex.j < 0 || hex.i < 0 ) {

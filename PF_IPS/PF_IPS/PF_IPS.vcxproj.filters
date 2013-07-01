@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\SDL_draw">
+      <UniqueIdentifier>{f29897d6-596c-400b-8993-319ca6876f93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\SDL_draw">
+      <UniqueIdentifier>{860fbb24-62c2-4f6a-a3da-e2ef613b131b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -39,6 +45,12 @@
     <ClInclude Include="SIRFilter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SDL_draw\SDL_draw.h">
+      <Filter>Header Files\SDL_draw</Filter>
+    </ClInclude>
+    <ClInclude Include="Visualization.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -54,6 +66,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Algorithms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SDL_draw\SDL_draw.c">
+      <Filter>Source Files\SDL_draw</Filter>
+    </ClCompile>
+    <ClCompile Include="Visualization.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

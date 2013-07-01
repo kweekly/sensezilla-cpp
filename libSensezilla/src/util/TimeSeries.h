@@ -16,6 +16,8 @@ public :
 	void insertPointAtEnd(double time, double value);
 	double getPoint(double time);
 	int findPoint(double time);
+	void timescale(double ratio); // multiply all by ratio
+	void timeoffset(double time); // add to all times assuming t[0]==0.0
 
 	TimeSeries * copy();
 	TimeSeries * decimate(int interval);
@@ -23,7 +25,6 @@ public :
 	TimeSeries * resample(double tstart, double tend, double tinterval);
 	TimeSeries * interp(vector<double> time);
 	TimeSeries * selectTime(double t1, double t2);
-
 
 	TimeSeries & operator+=(TimeSeries &other);
 	TimeSeries & operator*=(TimeSeries &other);

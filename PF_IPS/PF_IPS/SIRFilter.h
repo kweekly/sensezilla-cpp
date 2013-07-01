@@ -2,7 +2,11 @@
 #include "all.h"
 #include "PFTypes.h"
 #include "ShortestPathMap.h"
+#include <thread>
+#include <mutex>
 
+
+#define NUM_PF_THREADS 12
 
 template <class X_type,class Y_type,class P_type>
 class SIRFilter {
@@ -14,13 +18,14 @@ public:
 				size_t trajtime = 100	);
 	~SIRFilter();
 
-	void step(const Y_type & measurement);
-	void stepall(const std::vector<Y_type> measurements);
+	X_type step(const Y_type & measurement);
+	std::vector<X_type> stepall(const std::vector<Y_type> measurements);
 
 	std::vector<X_type> state();
 	std::vector<double> weights();
 
 private:
+	friend class Visualization;
 
 	class Particle {
 	public:
@@ -30,17 +35,45 @@ private:
 		size_t parent;
 	};
 	static int particle_comp_fn(const void * p1, const void * p2);
+	
 
 	size_t pcache_time;
 	size_t nParticles;
 	size_t step_no;
 	Particle ** pcache;
+	Particle * pscratch;
 
 	P_type params;
 
 	// User-supplied functions
 	void (*transition_model)(X_type & state, P_type & params);
 	double (*observation_model)(const X_type & in_state, const Y_type & measurement, P_type & params);
+
+	// excecution threads
+	class ThreadReturn {
+	public:
+		double psum;
+		int n;
+		int maxp;
+	};
+	ThreadReturn thread_retvals[NUM_PF_THREADS];
+
+	enum WorkStep {
+		QSORT, PREDUPDATE
+	} work_step;
+
+	bool program_alive;
+
+	thread thread_pool[NUM_PF_THREADS];
+	void _worker_thread(int thread_no);
+	void _run_workers(WorkStep ws);
+	
+	mutex thread_waiting_mutex[NUM_PF_THREADS]; // master unlocks this to signal that step should start
+	mutex thread_waiting_ack_mutex[NUM_PF_THREADS]; // child locks this until it acknowleges the step start signal
+	mutex thread_working_mutex[NUM_PF_THREADS]; // child locks this to indicate that it is working
+	
+	
+	const Y_type * current_measurement;
 };
 
 #include "SIRFilter.h"
@@ -61,19 +94,41 @@ template <class X_type,class Y_type,class P_type> SIRFilter<X_type,Y_type,P_type
 		pcache[c] = new Particle[nParticles];
 	}
 
+	pscratch = new Particle[nParticles];
+
 	step_no = 0;
 	for ( size_t c = 0; c < nParticles; c++ ) {
-		pcache[0][c].state = X0[c];
-		pcache[0][c].prob = 1.0/nParticles;
-		pcache[0][c].parent = NO_PARENT;
+		pcache[1][c].state = X0[c];
+		pcache[1][c].prob = 1.0/nParticles;
+		pcache[1][c].parent = NO_PARENT;
+	}
+
+	program_alive = true;
+	for (size_t c = 0; c < NUM_PF_THREADS; c++ ) {
+		thread_waiting_mutex[c].lock();
+		thread_pool[c] = thread(&SIRFilter::_worker_thread, this, c);
+		std::this_thread::yield();
+		thread_working_mutex[c].lock();
+		thread_working_mutex[c].unlock();
 	}
 }
 
 template <class X_type,class Y_type,class P_type> SIRFilter<X_type,Y_type,P_type>::~SIRFilter() {
+	program_alive = false;
+	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+		thread_waiting_mutex[t].unlock();
+	}
+
 	for ( size_t c = 0; c < pcache_time; c++ ) {
 		delete [] pcache[c];
 	}
 	delete [] pcache;
+	
+	delete [] pscratch;
+
+	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+		thread_pool[t].join();
+	}
 }
 
 template <class X_type,class Y_type,class P_type> int SIRFilter<X_type,Y_type,P_type>::particle_comp_fn(const void * p1, const void * p2) {
@@ -83,70 +138,180 @@ template <class X_type,class Y_type,class P_type> int SIRFilter<X_type,Y_type,P_
 	return -1;
 }
 
-template <class X_type,class Y_type,class P_type> void SIRFilter<X_type,Y_type,P_type>::step(const Y_type & measurement) {
-	size_t step0 = step_no % pcache_time, step1 = (step_no + 1) % pcache_time;
+template <class X_type,class Y_type,class P_type> void SIRFilter<X_type,Y_type,P_type>::_worker_thread(int thread_no) {
+	size_t step0, step1;
+	size_t start, end;
+	thread_working_mutex[thread_no].lock();
+
+	start = (int)(thread_no * ((double)nParticles / NUM_PF_THREADS));
+	if (thread_no == NUM_PF_THREADS-1)
+		end = nParticles;
+	else
+		end = (int)((thread_no+1) * ((double)nParticles / NUM_PF_THREADS));
+
+	log_i("Worker Thread %d started. Responsible for %d to %d (%d elements)", thread_no,start,end,(end-start));
+	
+	thread_retvals[thread_no].n = start-end;
+
+	while (true) {
+		thread_waiting_ack_mutex[thread_no].lock(); // should get this for free
+		thread_working_mutex[thread_no].unlock(); // done working, ready for next step
+		thread_waiting_mutex[thread_no].lock(); // wait for step to start
+		if ( !program_alive ) break;
+		//log_i("\tWT %d : Step %d",thread_no,step_no);
+
+		thread_working_mutex[thread_no].lock(); // lock our working mutex
+		thread_waiting_ack_mutex[thread_no].unlock(); // acknowleged that the waiting mutex was acknowleged
+		thread_waiting_mutex[thread_no].unlock(); // we have successfully locked the working mutex
+
+		step0 = step_no % pcache_time;
+		step1 = (step_no + 1) % pcache_time;		
+		
+		// do work ...
+		switch(work_step){
+		case QSORT:
+			qsort(&pcache[step1][start],end-start,sizeof(Particle),particle_comp_fn); // sort chunk in order
+			for ( size_t p = start; p < end; p++ ) { // put into temporary array
+				pscratch[p] = pcache[step1][p];
+			}
+			break;
+		case PREDUPDATE:
+			thread_retvals[thread_no].psum = 0;
+			thread_retvals[thread_no].maxp = start;
+			for (size_t p = start; p < end; p++) {
+				// prediction
+				transition_model(pcache[step1][p].state,params);
+
+				// update importance weights
+				pcache[step1][p].prob = observation_model(pcache[step1][p].state, *current_measurement, params);
+
+				// update sum of probabilities
+				thread_retvals[thread_no].psum += pcache[step1][p].prob;
+
+				// update current maximum
+				if ( pcache[step1][p].prob > pcache[step1][thread_retvals[thread_no].maxp].prob )
+						thread_retvals[thread_no].maxp = p;
+			}
+			
+			break;
+		default:
+			break;
+		}
+	}
+	thread_waiting_ack_mutex[thread_no].unlock();
+	thread_waiting_mutex[thread_no].unlock();
+	log_i("Worker Thread %d ended",thread_no);
+}
+
+template <class X_type,class Y_type,class P_type> void SIRFilter<X_type,Y_type,P_type>::_run_workers(WorkStep ws){
+	work_step = ws;
+	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+		thread_waiting_mutex[t].unlock();  // signal that child can continue
+		thread_waiting_ack_mutex[t].lock(); // child has acknowleged that it can continue
+		thread_waiting_mutex[t].lock(); // lock to prevent child from continuing next step
+		thread_waiting_ack_mutex[t].unlock(); // prepare for next step
+	}
+	
+	// wait for threads to finish
+	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+		thread_working_mutex[t].lock();
+		thread_working_mutex[t].unlock();
+	}
+}
+
+template <class X_type,class Y_type,class P_type> X_type SIRFilter<X_type,Y_type,P_type>::step(const Y_type & measurement) {
+	size_t step0, step1;
+
+	current_measurement = &measurement;
 	step_no++;
+
+	step0 = step_no % pcache_time;
+	step1 = (step_no + 1) % pcache_time;
 
 	// Discrete re-sampling of particles
 	for ( size_t p = 0; p < nParticles; p++ ) {
-		pcache[step1][p].prob = rand() / (double)(RAND_MAX); // create new list of random numbers from 0 to 1.0
+		pcache[step1][p].prob = randDouble(); // create new list of random numbers from 0 to 1.0
 	}
-	qsort(pcache[step0],nParticles,sizeof(Particle),particle_comp_fn); // sort those into order
+	
+	// sort step1 in order using worker threads
+	_run_workers(QSORT);
+	// merge the subarrays
+	// array has been copied into temporary array by the worker thread
+	size_t ptrs[NUM_PF_THREADS];
+	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+		ptrs[t] = (int)(t * ((double)nParticles / NUM_PF_THREADS));
+	}
+	for ( size_t p = 0; p < nParticles; p++ ) {
+		double minv = 9e99;
+		size_t mint = 0;
+		for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+			size_t end = (int)((t+1) * ((double)nParticles / NUM_PF_THREADS));
+			if ( ptrs[t] < end && pscratch[ptrs[t]].prob < minv ) {
+				mint = t;
+				minv = pscratch[ptrs[t]].prob;
+			}
+		}
+		pcache[step1][p] = pscratch[ptrs[mint]];
+		ptrs[mint]++;
+	}
+
+	/*for ( size_t p = 0; p < nParticles-1; p++ ) {
+		if ( pcache[step1][p].prob > pcache[step1][p+1].prob ) {
+			log_e("ERROR SORT DIDN'T WORK");
+		}
+	}*/
 	size_t p1 = 0;
 	double cumsum = 0;
 	for ( size_t p2 = 0; p2 < nParticles; p2++ ) {
-		while ( pcache[step1][p2].prob > cumsum ) {
+		while ( pcache[step1][p2].prob > cumsum && p1 < nParticles ) {
 			cumsum += pcache[step0][p1].prob;
 			p1++;
 		}
+		if ( p1 >= nParticles ) p1 = nParticles-1;
 		pcache[step1][p2].parent = p1;
 		pcache[step1][p2].state = pcache[step0][p1].state;
 		pcache[step1][p2].prob  = pcache[step0][p1].prob;
 	}
 
-	// Prediction
-	for ( size_t p = 0; p < nParticles; p++ ) {
-		transition_model(pcache[step1][p].state,params);
-	}
-
-	// Update importance weights
-	for ( size_t p = 0; p < nParticles; p++ ) {
-		pcache[step1][p].prob = observation_model(pcache[step1][p].state, measurement, params);
-	}
+	// Start worker threads on prediction and update steps, they will also calculate psums and maximum prob. particles
+	_run_workers(PREDUPDATE);
 
 	// Normalize the importance weights
 	double psum = 0.0;
-	for ( size_t p = 0; p < nParticles; p++ ) {
-		psum += pcache[step1][p].prob;
+	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+		psum += thread_retvals[t].psum;
 	}
-	if (psum == 0.0) {
+	if (psum != 0.0) {
 		for ( size_t p = 0; p < nParticles; p++ ) {
 			pcache[step1][p].prob /= psum;
 		}
 	} else {
+		log_e("Particles died, renormalize");
 		for ( size_t p = 0; p < nParticles; p++ ) {
 			pcache[step1][p].prob = 1.0/nParticles;
 		}
 	}
 
 	// find maximum
-	double maxp = 0.0;
-	size_t maxidx = NO_PARENT;
-	for ( size_t p = 0; p < nParticles; p++ ) {
-		if ( pcache[step1][p].prob > maxp ) {
-			maxp = pcache[step1][p].prob;
-			maxidx = p;
+	size_t maxidx = 0;
+	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+		if ( pcache[step1][thread_retvals[t].maxp].prob > pcache[step1][maxidx].prob ) {
+			maxidx = thread_retvals[t].maxp;
 		}
 	}
 	if ( maxidx == NO_PARENT ) {
 		log_i("Warning: No maximum probability particle");
 	}
+	return pcache[step1][maxidx].state;
 }
 
-template <class X_type,class Y_type,class P_type> void SIRFilter<X_type,Y_type,P_type>::stepall(const std::vector<Y_type> measurements) {
+template <class X_type,class Y_type,class P_type> vector<X_type> SIRFilter<X_type,Y_type,P_type>::stepall(const std::vector<Y_type> measurements) {
+	vector<X_type> retval;
+	retval.reserve(measurements.size());
 	for (vector<Y_type>::iterator iter = measurements.begin(); iter != measurements.end(); iter++) {
-		step(*iter);
+		retval.push_back(step(*iter));
 	}
+	return retval;
 }
 
 template <class X_type,class Y_type,class P_type> std::vector<X_type> SIRFilter<X_type,Y_type,P_type>::state() {

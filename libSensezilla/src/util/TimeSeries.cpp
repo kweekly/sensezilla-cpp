@@ -82,11 +82,11 @@ TimeSeries * TimeSeries::interp(vector<double> times) {
 	size_t idx = 0;
 	for ( size_t tidx = 0; tidx < times.size(); tidx++) {
 		double time = times[tidx];
-		while ( idx <= t.size()-1 && time < t[idx] ) idx++;
+		while ( idx <= t.size()-1 && time > t[idx] ) idx++;
 		double val;
 		if ( idx == 0 ) {// uh-oh, before time, use first point
 			val = v[0];
-		} else if ( idx >= t.size() - 1 ) { // uh-oh, after time, use last point
+		} else if ( idx > t.size() - 1 ) { // uh-oh, after time, use last point
 			val = v.back();
 		} else {
 			val = v[idx-1] + (time-t[idx-1])*(v[idx]-v[idx-1])/(t[idx]-t[idx-1]);
@@ -123,6 +123,18 @@ TimeSeries * TimeSeries::resample(double tinterval) {
 	return resample(t[0],t[t.size()-1],tinterval);
 }
 
+void TimeSeries::timescale(double ratio) {
+	for ( size_t c = 0; c < t.size(); c++ ) {
+		t[c] *= ratio;
+	}
+}
+
+void TimeSeries::timeoffset(double time) {
+	double t0 = t[0];
+	for ( size_t c = 0; c < t.size(); c++ ) {
+		t[c] += time - t0;
+	}
+}
 
 TimeSeries & TimeSeries::operator+=(TimeSeries &other) {
 	const TimeSeries * tmp = interpIntoTime(other);

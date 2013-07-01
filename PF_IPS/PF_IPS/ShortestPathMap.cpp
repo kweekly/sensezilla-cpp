@@ -10,8 +10,24 @@ ShortestPathMap::~ShortestPathMap(void)
 {
 }
 
+hexcoords ShortestPathMap::getRandomHexInRange( hexcoords start ) {
+	if ( start.i < 0 || start.i >= hexmap.getColumns() || start.j < 0 || start.j >= hexmap.getRows()) {
+		start.i = start.j = -1;
+		return start;
+	}
+	int startidx = hex2idx(start);
 
-hexcoords ShortestPathMap::idx2Hex(unsigned int idx) {
+	if ( map[startidx].size() == 0 ) {
+		start.i = start.j = -1;
+		return start;
+	}
+	int endno = rand() % ( map[startidx].size() );
+	int endidx = map[startidx][endno];
+	return idx2hex(endidx);
+}
+
+
+hexcoords ShortestPathMap::idx2hex(unsigned int idx) {
 	hexcoords ret;
 	ret.i = idx % hexmap.getColumns();
 	ret.j = idx / hexmap.getColumns();
@@ -170,9 +186,16 @@ void ShortestPathMap::_addCheckObs( const vector<vector<bool>> &hexdata, int col
 
 set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, int position, const HexMap & hmap, int hexmovespeed ) {
 	set<int> tocheck,retval;
-	tocheck.insert(position);
 	set<int> candidates;
 
+	// check if currently at obstacle or out of range
+	int ci = position % hmap.getColumns();
+	int cj = position / hmap.getColumns();
+	if ( ci < 0 || ci >= (int)(hexdata[0].size()) || cj < 0 || cj >= (int)(hexdata.size()) || hexdata[cj][ci] ) {
+		return retval;
+	}
+
+	tocheck.insert(position);
 	for ( int c = 0; c < hexmovespeed; c++ ) {
 		candidates.clear();
 		// add all neighboring nodes

@@ -15,8 +15,9 @@ public:
 
 	void saveToCache(const string fname);
 
-	
-	
+	hexcoords getRandomHexInRange( hexcoords start );
+
+		~ShortestPathMap(void);
 private:
 	//parameteres
 	HexMap hexmap;
@@ -24,10 +25,9 @@ private:
 	int hexmovespeed;
 	
 	// data
-	vector<vector<int>> map;
+	vector<vector<int>> map;	
 	
-	
-	hexcoords idx2Hex(unsigned int idx);
+	hexcoords idx2hex(unsigned int idx);
 	unsigned int hex2idx(hexcoords hex);
 
 	static set<int> _nearestHexes( const vector<vector<bool>> &hexdata, int position, const HexMap & hmap, int hexmovespeed );
@@ -37,7 +37,7 @@ private:
 	static bool _loadCacheData(FILE * fin, ShortestPathMap * ptr);
 
 	ShortestPathMap(const HexMap h);
-	~ShortestPathMap(void);
+
 
 };
 

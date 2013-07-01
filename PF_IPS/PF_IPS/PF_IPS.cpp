@@ -7,21 +7,28 @@
 #include "HexMap.h"
 #include "PF_IPS.h"
 #include "SIRFilter.h"
+#include "Visualization.h"
+
 
 #include <thread>
+#include <random>
 
 int error = 0;
 
 
 PF_IPS::PF_IPS() {
 	disp_help = use_rssi = use_xy = use_trajout = use_partout = use_mappng = mappng_bounds_provided = moverwrite = false;
-	hexradius = 0.5;
-	movespeed = 1.5;
+	hexradius = 1;
+	movespeed = 0.15;
 	nParticles = 1000;
 	time_interval = 5.0;
 	pathmap = NULL;
+	req_data_lock = false;
+	simulate = false;
+	TIME = -1;
 }
-PF_IPS::~PF_IPS() {}
+PF_IPS::~PF_IPS() {
+}
 
 bool PF_IPS::processCLOption( string opt, string val ) {
 	if ( opt == "help" ) {
@@ -103,6 +110,19 @@ mberror:
 		partout_fname = val;
 		use_partout = true;
 		return true;
+	} else if ( opt == "groundtruth") {
+		groundtruth_fname = val;
+		return true;
+	} else if ( opt == "gtorigin" ) {
+		const char * gtstr = val.c_str();
+		gt_ref_X = atof(gtstr);
+		if (!(gtstr = strchr(gtstr,','))) goto mberror;
+		gt_ref_Y = atof(++gtstr);
+		return true;
+gterror:
+		error = 1;
+		log_e("Error in gtorigin string");
+		return true;
 	}
 
 
@@ -132,8 +152,8 @@ void PF_IPS::_loadRSSIData() {
 			RSSISensor sense;
 			sense.IDstr = id;
 			string posstr = rssi_config[string("sensors")][string("pos_")+id].asString();
-			sense.pos.x = std::stof(posstr.substr(0,posstr.find(' ')));
-			sense.pos.y = std::stof(posstr.substr(posstr.rfind(' ')+1));
+			sense.pos.y = std::stof(posstr.substr(0,posstr.find(' ')))  + sense_ref_Y;
+			sense.pos.x = std::stof(posstr.substr(posstr.rfind(' ')+1)) + sense_ref_X;
 			log_i("RFID sensor %s at (%.2f, %.2f)",sense.IDstr.c_str(),sense.pos.x,sense.pos.y);
 			
 			vector<TimeSeries *> gaussts = CSVLoader::loadMultiTSfromCSV(rssi_basedir+string("gaussparams_s")+id+string(".csv"));
@@ -148,6 +168,7 @@ void PF_IPS::_loadRSSIData() {
 			for ( vector<ConfigurationValue>::iterator tag_iter = rssi_config[string("tags")][string("active_list")].begin(); tag_iter != rssi_config[string("tags")][string("active_list")].end(); tag_iter++) {
 				string tid = (*tag_iter).asString();
 				TimeSeries * rssits = CSVLoader::loadTSfromCSV(rssi_basedir+string("RSSI_t")+tid+string("_s")+id+string(".csv"));
+				if ( rssits ) rssits->timescale(1e-3);
 				allrssi[sidx].push_back(rssits);
 			}
 			sidx++;
@@ -166,31 +187,72 @@ void PF_IPS::_loadRSSIData() {
 				}
 			}
 		}
-		mint /= 1000;
-		maxt /= 1000;
 		vector<double> T;
 		T.reserve((int)((maxt-mint)/time_interval) + 1);
 		for ( double t = mint; t <= maxt; t += time_interval) {
 			T.push_back(t);
 		}
 		log_i("Have sensor data from t=%.0f to t=%.0f for a total of %d points (dt=%.2f)",mint,maxt,T.size(),time_interval);
+		TimeSeries * gtx,*gty;
+		if ( simulate ) {
+			log_i("Interpolating ground truth.");
+			*(gtdata[0]) += gt_ref_X;
+			*(gtdata[1]) += gt_ref_Y;
+
+			log_i("\t(Note: Referenced to RSSI system, and x-y coordinates flipped)");
+			gtx = gtdata[1];
+			gtdata[1] = gtdata[0];
+			gtdata[0] = gtx;
+
+			gtdata[0]->timeoffset( mint );
+			gtdata[1]->timeoffset( mint );
+			*(gtdata[1]) *= -1;
+
+			gtx = gtdata[0]->interp(T);
+			gty = gtdata[1]->interp(T);
+
+			delete gtdata[0];
+			delete gtdata[1];
+
+			gtdata[0] = gtx;
+			gtdata[1] = gty;
+		}
+
+		default_random_engine rengine;
+		normal_distribution<double> stdnorm(0.0,1.0);
 
 		for ( int i = 0; i < allrssi.size(); i++ ) {
-			log_i("Interpolating data for sensor %d",i);
-			int n = 0;
-			bool init = false;
-			for ( int j = 0; j < allrssi[i].size(); j++ ) {
-				if ( allrssi[i][j] == NULL || allrssi[i][j]->t.size() < 5 ) continue;
-				if ( !init ) {
-					rssi_data.push_back(allrssi[i][j]->interp(T));
-					init = true;
-				} else {
-					*(rssi_data.back()) += *(allrssi[i][j]->interp(T));
+			if ( simulate ) {
+				log_i("Simulating data for sensor %d",i);
+				
+				TimeSeries * ts = gtx->copy();
+				for ( size_t ti = 0; ti < T.size(); ti++) {
+					xycoords gtpos = {gtx->v[ti],gty->v[ti]};
+					xycoords spos = sensors[i].pos;
+					double d = dist(gtpos,spos);
+					double mu,sigma;
+					_get_gaussian_parameters(&(sensors[i]),d,mu,sigma);
+					ts->v[ti] = stdnorm(rengine) * sigma + mu;
 				}
-				n++;
-			}
+				rssi_data.push_back(ts);
+			} else {
+				log_i("Interpolating data for sensor %d",i);
+			
+				int n = 0;
+				bool init = false;
+				for ( int j = 0; j < allrssi[i].size(); j++ ) {
+					if ( allrssi[i][j] == NULL || allrssi[i][j]->t.size() < 5 ) continue;
+					if ( !init ) {
+						rssi_data.push_back(allrssi[i][j]->interp(T));
+						init = true;
+					} else {
+						*(rssi_data.back()) += *(allrssi[i][j]->interp(T));
+					}
+					n++;
+				}
 
-			*(rssi_data.back()) /= n;
+				*(rssi_data.back()) /= n;
+			}
 		}
 
 error:
@@ -202,6 +264,7 @@ error:
 			}
 			allrssi.pop_back();
 		}
+
 }
 
 void PF_IPS::_loadXYData() {
@@ -224,8 +287,9 @@ void PF_IPS::_loadMapPNG() {
 		}
 
 		double bounds[4] = { minx, maxx, miny, maxy };
-		HexMap hmap(bounds,hexradius,2);
-		int movespeed_hexes = (int)(movespeed / hexradius + 0.9999);
+		hmap = HexMap(bounds,hexradius,2);
+		int movespeed_hexes = (int)(movespeed * time_interval / hexradius + 0.9999);
+		log_i("Move speed=%.2f m/s ( %d hexes / timestep )",movespeed,movespeed_hexes);
 
 		bool load_from_PNG = true;
 
@@ -259,7 +323,7 @@ void PF_IPS::_loadMapPNG() {
 			for ( int row = 0; row < data.height; row++ ) {
 				obsmap[row].resize(data.width);
 				for ( int col = 0; col < data.width; col++) {
-					obsmap[row][col] = (data.B[row][col] == data.R[row][col] && data.R[row][col] == data.G[row][col] && data.R[row][col] != 255);
+					obsmap[row][col] = (data.B[row][col] == data.R[row][col] && data.R[row][col] == data.G[row][col] && data.R[row][col] < 0.95);
 				}
 			}
 			log_i("Freeing PNG data");
@@ -305,6 +369,15 @@ void PF_IPS::start() {
 		return;
 	}
 
+	if ( !groundtruth_fname.empty() ) {
+		gtdata = CSVLoader::loadMultiTSfromCSV(groundtruth_fname);
+		if (gtdata.size() < 2) {
+			log_e("Could not open ground truth file");
+			goto error;
+		}
+		simulate = true;
+	}
+
 	if ( use_rssi ) {
 		_loadRSSIData();
 		if (error) goto error;
@@ -323,39 +396,27 @@ void PF_IPS::start() {
 	_loadMapPNG();
 	if (error) goto error;
 
-	{
-	// do the processing
-	log_i("\nGenerating initial States");
-	vector<State> X0;
-	for ( int c = 0; c < nParticles; c++ ) {
-		State s;
-		s.x = rand()/(double)(RAND_MAX) * (maxx-minx) + minx;
-		s.y = rand()/(double)(RAND_MAX) * (maxy-miny) + miny;
-		X0.push_back(s);
-	}
-
-	Params p;
-	p.context = this;
-	SIRFilter<State,Observation,Params> filter(X0,PF_IPS::transition_model,PF_IPS::observation_model,p);
-	Observation o;
-	for ( int step_no = 0; step_no < rssi_data[0]->t.size(); step_no++ ) {
-		o.rfid_system_rssi_measurements.clear();
-		for ( int sid = 0; sid < rssi_data.size(); sid++ ) {
-			o.rfid_system_rssi_measurements.push_back(rssi_data[sid]->v[step_no]);
-		}
-		log_i("Step %d of %d",step_no+1,rssi_data[0]->t.size());
-		filter.step(o);
-	}
+	_sirFilter();
 
 	if (stateout_fname != "") {
 
 	}
-	}
+	
 
 	error:
 	// clean-up
+	if ( pathmap ) delete pathmap;
+	while(!gtdata.empty()) {
+		delete gtdata.back();
+		gtdata.pop_back();
+	}
+	while(!rssi_data.empty()) {
+		delete rssi_data.back();
+		rssi_data.pop_back();
+	}
 	;
 }
+
 
 void PF_IPS::printHelp() {
 	log_i("Particle Filter Indoor Positioning System\n"
@@ -378,6 +439,9 @@ void PF_IPS::printHelp() {
 		  "\t-particles : Number of particles\n"
 		  "\t-movespeed : Move Speed in m/s\n"
 		  "\n"
+		  "\t-groundtruth : Ground truth CSV\n"
+		  "\t-gtorigin	  : Origin of the ground truth\n"
+		  "\n"
 		  "\t-trajout   : Max-likelihood state output file\n"
 		  "\t-partout   : Particle state estimate and weights\n"
 		  );
@@ -389,12 +453,21 @@ void PF_IPS::printHelp() {
 
 int _tmain(int argc, _TCHAR* argv[])
 {
+	
 	PF_IPS prog;
+	
 	prog.parseCL( argc, argv );
 	if ( error ) {
 		return error;
 	}
-	prog.start();
+
+	Visualization viz(&prog);
+	if ( !viz.start() ) {
+		log_e("Error: Could not start visualization");
+		return -1;
+	}
+
+	prog.start();	
 	return error;
 }
 

@@ -23,8 +23,7 @@ class PF_IPS;
 
 class State {
 public:
-	double x;
-	double y;
+	xycoords pos;
 };
 
 class Observation {

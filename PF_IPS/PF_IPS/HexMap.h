@@ -31,7 +31,7 @@ public:
 
 	string toString();
 
-private:
+public:
 	double bounds[4];
 	double H,R,S,W;
 

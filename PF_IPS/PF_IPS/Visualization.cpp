@@ -70,7 +70,14 @@ void Visualization::_vis_thread_fn() {
 			for ( int y = 0; y < height; y++ ) {
 				int row = y / scale_factor;
 				int col = x / scale_factor;
-				if (data.B[row][col] == data.R[row][col] && data.R[row][col] == data.G[row][col] && (data.R[row][col] < 0.95)) {
+				bool obs = false;
+				for ( int s = 0; s < 1/scale_factor; s++ ) {
+					if (data.B[row+s][col+s] == data.R[row+s][col+s] && data.R[row+s][col+s] == data.G[row+s][col+s] && (data.R[row+s][col+s] < 0.95)) {
+						obs = true;
+						break;
+					}
+				}
+				if (obs) {
 					Draw_Pixel(background,x,y,COLOR_OBSTACLE);
 				} else {
 					Draw_Pixel(background,x,y,COLOR_WHITE);

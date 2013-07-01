@@ -47,8 +47,8 @@ int HexMap::getColumns() const {
 
 xycoords HexMap::getCenter( hexcoords hex ) const {
 	xycoords retval;
-	retval.y = hex.j * H - ((hex.i+1)%2)*H/2 - H/2 + bounds[YMIN];
-	retval.x = hex.i * S + R + bounds[XMIN];
+	retval.y = hex.j * H + (abs(hex.i)%2)*H/2 + bounds[YMIN];
+	retval.x = hex.i * S + bounds[XMIN];
 	return retval;
 }
 
@@ -56,11 +56,14 @@ hexcoords HexMap::nearestHex(xycoords xy ) const {
 	hexcoords retval;
 	xy.x -= bounds[XMIN];
 	xy.y -= bounds[YMIN];
-	retval.i = (int)(xy.x/S);
-	retval.j = (int)ceil((xy.y + (retval.i%2)*H/2 + H/2)/H);
-	if (xy.x <= R*abs(0.5 - xy.y/H) ){
+	retval.i = (int)floor(xy.x/S);
+	double yts = (xy.y - (abs(retval.i)%2)*H/2);
+	retval.j = (int)floor(yts/H);
+	double xt = xy.x - retval.i*S;
+	double yt = yts - retval.j*H;
+	if (xt <= R*abs(0.5 - yt/H) ){
 		retval.i -= 1;
-		retval.j -= (retval.i%2) + (xy.y > H/2);
+		retval.j += -(abs(retval.i)%2) + (xy.y > H/2)?1:0;
 	}
 	return retval;
 }

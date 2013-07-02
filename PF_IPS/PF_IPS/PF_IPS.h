@@ -63,7 +63,7 @@ private:
 	map<string,map<string, ConfigurationValue>> rssi_config;
 	vector<RSSISensor> sensors;
 
-	HexMap hmap;
+	Grid grid;
 	ShortestPathMap * pathmap;
 
 	string rssi_basedir;

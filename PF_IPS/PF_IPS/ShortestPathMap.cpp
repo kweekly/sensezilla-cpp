@@ -1,7 +1,7 @@
 #include "all.h"
 #include "ShortestPathMap.h"
 
-ShortestPathMap::ShortestPathMap(const HexMap h) : hexmap(h)
+ShortestPathMap::ShortestPathMap(const Grid h) : grid(h)
 {
 }
 
@@ -10,8 +10,8 @@ ShortestPathMap::~ShortestPathMap(void)
 {
 }
 
-hexcoords ShortestPathMap::getRandomHexInRange( hexcoords start ) {
-	if ( start.i < 0 || start.i >= hexmap.getColumns() || start.j < 0 || start.j >= hexmap.getRows()) {
+gridcoords ShortestPathMap::getRandomCellInRange( gridcoords start ) {
+	if ( start.i < 0 || start.i >= grid.getColumns() || start.j < 0 || start.j >= grid.getRows()) {
 		start.i = start.j = -1;
 		return start;
 	}
@@ -27,18 +27,18 @@ hexcoords ShortestPathMap::getRandomHexInRange( hexcoords start ) {
 }
 
 
-hexcoords ShortestPathMap::idx2hex(unsigned int idx) {
-	hexcoords ret;
-	ret.i = idx % hexmap.getColumns();
-	ret.j = idx / hexmap.getColumns();
+gridcoords ShortestPathMap::idx2hex(unsigned int idx) {
+	gridcoords ret;
+	ret.i = idx % grid.getColumns();
+	ret.j = idx / grid.getColumns();
 	return ret;
 }
 
-unsigned int ShortestPathMap::hex2idx(hexcoords hex) {
-	return hex.i + hex.j * hexmap.getColumns();
+unsigned int ShortestPathMap::hex2idx(gridcoords cell) {
+	return cell.i + cell.j * grid.getColumns();
 }
 
-bool ShortestPathMap::_loadCacheParams(FILE * fin, string *pngname, HexMap* hmap, int *hexmovespeed) {
+bool ShortestPathMap::_loadCacheParams(FILE * fin, string *pngname, Grid* grid, int *hexmovespeed) {
 	int rd;
 	int l;
 
@@ -56,8 +56,8 @@ bool ShortestPathMap::_loadCacheParams(FILE * fin, string *pngname, HexMap* hmap
 	pngname->assign(fnamebuf);
 	if ( rd != l ) return false;
 
-	// hexmap
-	rd = fread(hmap, sizeof(HexMap),1,fin);
+	// Grid
+	rd = fread(grid, sizeof(Grid),1,fin);
 	if ( rd != 1 ) return false;
 	
 	// hexmovespeed
@@ -98,7 +98,7 @@ rderr2:
 
 ShortestPathMap * ShortestPathMap::loadFromCache(const string fname) {
 	string pngname;
-	HexMap hmap;
+	Grid grid;
 	int hexmovespeed;
 
 	FILE * fin = fopen(fname.c_str(),"rb");
@@ -107,16 +107,16 @@ ShortestPathMap * ShortestPathMap::loadFromCache(const string fname) {
 		return NULL;
 	}
 	
-	if (!_loadCacheParams(fin,&pngname,&hmap,&hexmovespeed)) goto rderr;
+	if (!_loadCacheParams(fin,&pngname,&grid,&hexmovespeed)) goto rderr;
 	{
-	string hmap_str = hmap.toString();
+	string grid_str = grid.toString();
 	log_i("Parameters found in map cache:");
 	log_i("\tGenerated from: %s",pngname.c_str());
-	log_i("\tBounds: %s",hmap_str.c_str());
+	log_i("\tBounds: %s",grid_str.c_str());
 	log_i("\tMovespeed (hexes): %d",hexmovespeed);
 	}
 
-	ShortestPathMap * retval = new ShortestPathMap(hmap);
+	ShortestPathMap * retval = new ShortestPathMap(grid);
 	retval->pngfname = pngname;
 	retval->hexmovespeed = hexmovespeed;
 
@@ -133,7 +133,7 @@ rderr:
 	return NULL;
 }
 
-ShortestPathMap * ShortestPathMap::loadFromCache(const string fname, const string pngname, const HexMap hmap, int hexmovespeed) {
+ShortestPathMap * ShortestPathMap::loadFromCache(const string fname, const string pngname, const Grid grid, int hexmovespeed) {
 	FILE * fin = fopen(fname.c_str(),"rb");
 	if ( !fin ) {
 		log_e("Error: Cannot open cache file");
@@ -141,18 +141,18 @@ ShortestPathMap * ShortestPathMap::loadFromCache(const string fname, const strin
 	}
 		
 	string tname;
-	HexMap thmap;
+	Grid tgrid;
 	int thms;
 
-	if (!_loadCacheParams(fin,&tname,&thmap,&thms)) goto rderr;
+	if (!_loadCacheParams(fin,&tname,&tgrid,&thms)) goto rderr;
 
 	if( pngname != tname ) {
 		log_e("Error: Cache was generated with %s but pngname is %s",tname.c_str(),pngname.c_str());
 		goto error1;
 	}
 
-	if ( thmap != hmap ) {
-		log_e("Error: Cache was generated with different hexmap parameters");
+	if ( tgrid != grid ) {
+		log_e("Error: Cache was generated with different Grid parameters");
 		goto error1;
 	}
 
@@ -161,7 +161,7 @@ ShortestPathMap * ShortestPathMap::loadFromCache(const string fname, const strin
 		goto error1;
 	}
 
-	ShortestPathMap * retval = new ShortestPathMap(hmap);
+	ShortestPathMap * retval = new ShortestPathMap(grid);
 	retval->pngfname = pngname;
 	retval->hexmovespeed = hexmovespeed;
 
@@ -184,13 +184,13 @@ void ShortestPathMap::_addCheckObs( const vector<vector<bool>> &hexdata, int col
 		}
 }
 
-set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, int position, const HexMap & hmap, int hexmovespeed ) {
+set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, int position, const Grid & grid, int hexmovespeed ) {
 	set<int> tocheck,retval;
 	set<int> candidates;
 
 	// check if currently at obstacle or out of range
-	int ci = position % hmap.getColumns();
-	int cj = position / hmap.getColumns();
+	int ci = position % grid.getColumns();
+	int cj = position / grid.getColumns();
 	if ( ci < 0 || ci >= (int)(hexdata[0].size()) || cj < 0 || cj >= (int)(hexdata.size()) || hexdata[cj][ci] ) {
 		return retval;
 	}
@@ -201,19 +201,19 @@ set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, in
 		// add all neighboring nodes
 		for (set<int>::iterator i = tocheck.begin(); i != tocheck.end(); i++) {
 			int pcheck = * i;
-			int hi = pcheck % hmap.getColumns();
-			int hj = pcheck / hmap.getColumns();
+			int hi = pcheck % grid.getColumns();
+			int hj = pcheck / grid.getColumns();
 			if (hi % 2) { // odd
-				_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi + 1, hj - 1 );
-				_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi - 1, hj - 1 );
+				_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj - 1 );
+				_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj - 1 );
 			} else { // even
-				_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi + 1, hj + 1);
-				_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi - 1, hj + 1 );
+				_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj + 1);
+				_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj + 1 );
 			}
-			_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi - 1, hj );
-			_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi , hj - 1 );
-			_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi + 1, hj );
-			_addCheckObs(hexdata, hmap.getColumns(), &candidates, hi, hj + 1 );			
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj );
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi , hj - 1 );
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj );
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi, hj + 1 );			
 
 			// retval = union(retval, tocheck)
 			retval.insert(pcheck);
@@ -226,12 +226,12 @@ set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, in
 	return retval;	
 }
 
-ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<bool>> &hexdata, const string pngname, const HexMap hmap, int hexmovespeed) {
-	ShortestPathMap * retval = new ShortestPathMap(hmap);
+ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<bool>> &hexdata, const string pngname, const Grid grid, int hexmovespeed) {
+	ShortestPathMap * retval = new ShortestPathMap(grid);
 	retval->pngfname = pngname;
 	retval->hexmovespeed = hexmovespeed;
 
-	int nidx = hmap.getRows() * hmap.getColumns();
+	int nidx = grid.getRows() * grid.getColumns();
 
 	// calculate cache
 	retval->map.reserve(nidx);
@@ -240,7 +240,7 @@ ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<b
 			log_i("%d of %d cells completed",k,nidx);
 		}
 		vector<int> donevec;
-		set<int> nset = _nearestHexes(hexdata, k, hmap, hexmovespeed);
+		set<int> nset = _nearestHexes(hexdata, k, grid, hexmovespeed);
 		donevec.assign(nset.begin(),nset.end());
 		donevec.shrink_to_fit();
 		retval->map.push_back(donevec);
@@ -259,7 +259,7 @@ void ShortestPathMap::saveToCache(string fname) {
 	fwrite(fname_c,1,l,fout); // write string itself
 
 	// write hexgrid parameters
-	fwrite(&hexmap,sizeof(hexmap),1,fout);
+	fwrite(&grid,sizeof(Grid),1,fout);
 
 	// write hexmovespeed
 	fwrite(&hexmovespeed,sizeof(hexmovespeed),1,fout);

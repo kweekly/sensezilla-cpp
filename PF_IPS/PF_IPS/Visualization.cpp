@@ -143,7 +143,7 @@ void Visualization::_render() {
 	
 	// draw grid lines
 	const double GRID_INTERVAL = 5.0;
-	for ( double x = floor(prog->hmap.bounds[XMIN]/GRID_INTERVAL)*GRID_INTERVAL; x <= prog->hmap.bounds[XMAX]; x += GRID_INTERVAL ) {
+	for ( double x = floor(prog->grid.bounds[XMIN]/GRID_INTERVAL)*GRID_INTERVAL; x <= prog->grid.bounds[XMAX]; x += GRID_INTERVAL ) {
 		int px = PX(x);
 		if ( px >= 0 && px < width-1) {
 			if ( x == 0 ) 
@@ -153,7 +153,7 @@ void Visualization::_render() {
 		}
 	}
 
-	for ( double y = floor(prog->hmap.bounds[YMIN]/GRID_INTERVAL)*GRID_INTERVAL; y <= prog->hmap.bounds[YMAX]; y += GRID_INTERVAL ) {
+	for ( double y = floor(prog->grid.bounds[YMIN]/GRID_INTERVAL)*GRID_INTERVAL; y <= prog->grid.bounds[YMAX]; y += GRID_INTERVAL ) {
 		int py = PY(y);
 		if ( py >= 0 && py < height-1) {
 			if ( y == 0 ) 

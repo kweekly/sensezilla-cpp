@@ -66,19 +66,19 @@ double dist(xycoords x1, xycoords x2) {
 
 void PF_IPS::transition_model(State & state, Params & params) {
 	ShortestPathMap * pathmap = params.context->pathmap;
-	HexMap hmap = params.context->hmap;
+	Grid grid = params.context->grid;
 	
-	hexcoords hc = hmap.nearestHex(state.pos);
-	hexcoords hc2 = pathmap->getRandomHexInRange(hc);
+	gridcoords hc = grid.nearestCell(state.pos);
+	gridcoords hc2 = pathmap->getRandomCellInRange(hc);
 	if ( hc2.i < 0 || hc2.j < 0 ) { // must have gone out of range or into an obstacle
 		state.pos.x = _Nan._Double;
 		state.pos.y = _Nan._Double;
 		return;
 	}
 	
-	xycoords xy2 =  hmap.getCenter(hc2);
+	xycoords xy2 =  grid.getCenter(hc2);
 	
-	double rrand = 0.99*randDouble() * hmap.R * sqrt(3.0)/2;
+	double rrand = 0.99*randDouble() * grid.R * sqrt(3.0)/2;
 	double trand = randDouble() * 2 * M_PI;
 	xy2.x += rrand * cos(trand);
 	xy2.y += rrand * sin(trand);

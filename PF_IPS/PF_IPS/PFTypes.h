@@ -5,7 +5,7 @@ struct xycoords {
 	double x,y;
 };
 
-struct hexcoords {
+struct gridcoords {
 	int i,j;
 };
 

@@ -4,7 +4,7 @@
 #include "stdafx.h"
 #include "all.h"
 #include "ShortestPathMap.h"
-#include "HexMap.h"
+#include "Grid.h"
 #include "PF_IPS.h"
 #include "SIRFilter.h"
 #include "Visualization.h"
@@ -287,14 +287,14 @@ void PF_IPS::_loadMapPNG() {
 		}
 
 		double bounds[4] = { minx, maxx, miny, maxy };
-		hmap = HexMap(bounds,hexradius,2);
+		grid = Grid(bounds,hexradius,2);
 		int movespeed_hexes = (int)(movespeed * time_interval / hexradius + 0.9999);
 		log_i("Move speed=%.2f m/s ( %d hexes / timestep )",movespeed,movespeed_hexes);
 
 		bool load_from_PNG = true;
 
 		if ( mapcache_fname != "" ) { // see if cache is available
-			pathmap = ShortestPathMap::loadFromCache(mapcache_fname, mappng_fname, hmap, movespeed_hexes);
+			pathmap = ShortestPathMap::loadFromCache(mapcache_fname, mappng_fname, grid, movespeed_hexes);
 			if ( pathmap ) {
 				log_i("Map cache loaded, no need to recalculate");
 				load_from_PNG = false;
@@ -311,8 +311,8 @@ void PF_IPS::_loadMapPNG() {
 		double dimx = maxx - minx, dimy = maxy - miny;
 		log_i("Dimensions of map: (%.2f m x %.2f m)  %.2f sq.m.",dimx,dimy,dimx*dimy);
 		log_i("Bounds: [%.2f %.2f %.2f %.2f]",minx,maxx,miny,maxy);
-		string hexmap_str = hmap.toString();
-		log_i("Hex map: %s",hexmap_str.c_str());
+		string Grid_str = grid.toString();
+		log_i("Grid: %s",Grid_str.c_str());
 
 		if ( load_from_PNG ) {
 			PNGData data = PNGLoader::loadFromPNG(mappng_fname);
@@ -330,7 +330,7 @@ void PF_IPS::_loadMapPNG() {
 			PNGLoader::freePNGData(&data);
 
 			log_i("Interpolating into hexgrid");
-			obsmap = hmap.interpolateXYData(obsmap,bounds);
+			obsmap = grid.interpolateXYData(obsmap,bounds);
 			
 			log_i("Thresholding");
 			vector<vector<bool>> obsmap_th(obsmap.size());
@@ -342,7 +342,7 @@ void PF_IPS::_loadMapPNG() {
 			}
 
 			log_i("Calculating shortest path");
-			pathmap = ShortestPathMap::generateFromObstacleMap(obsmap_th, mappng_fname, hmap, movespeed_hexes );
+			pathmap = ShortestPathMap::generateFromObstacleMap(obsmap_th, mappng_fname, grid, movespeed_hexes );
 
 			if ( mapcache_fname != "" && moverwrite  ){
 				log_i("Writing mapcache");

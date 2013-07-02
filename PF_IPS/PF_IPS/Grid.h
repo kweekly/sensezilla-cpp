@@ -10,21 +10,21 @@
 #define YMIN 2
 #define YMAX 3
 
-class HexMap
+class Grid
 {
 public:
-	HexMap();
-	HexMap( const double pbounds[4], double hexradius, double nHexOvercoverage );
-	~HexMap(void);
+	Grid();
+	Grid( const double pbounds[4], double hexradius, double nHexOvercoverage );
+	~Grid(void);
 
-	bool operator==(const HexMap &other) const;
-	bool operator!=(const HexMap &other) const;
+	bool operator==(const Grid &other) const;
+	bool operator!=(const Grid &other) const;
 
 	int getRows() const;
 	int getColumns() const;
 
-	xycoords getCenter( hexcoords hex ) const;
-	hexcoords nearestHex( xycoords xy ) const;
+	xycoords getCenter( gridcoords cell ) const;
+	gridcoords nearestCell( xycoords xy ) const;
 
 	vector<vector<double>> interpolateXYData( const vector<vector<double>> &data, const vector<double> &xpoints, const vector<double> &ypoints ) const;
 	vector<vector<double>> interpolateXYData( const vector<vector<double>> &data, const double dbounds[4]) const;

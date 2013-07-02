@@ -87,7 +87,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HexMap.h" />
+    <ClInclude Include="Grid.h" />
     <ClInclude Include="PFTypes.h" />
     <ClInclude Include="PF_IPS.h" />
     <ClInclude Include="SDL_draw\SDL_draw.h" />
@@ -99,7 +99,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Algorithms.cpp" />
-    <ClCompile Include="HexMap.cpp" />
+    <ClCompile Include="Grid.cpp" />
     <ClCompile Include="PF_IPS.cpp" />
     <ClCompile Include="SDL_draw\SDL_draw.c" />
     <ClCompile Include="ShortestPathMap.cpp" />

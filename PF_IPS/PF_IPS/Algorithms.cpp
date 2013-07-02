@@ -77,11 +77,9 @@ void PF_IPS::transition_model(State & state, Params & params) {
 	}
 	
 	xycoords xy2 =  grid.getCenter(hc2);
-	
-	double rrand = 0.99*randDouble() * grid.R * sqrt(3.0)/2;
-	double trand = randDouble() * 2 * M_PI;
-	xy2.x += rrand * cos(trand);
-	xy2.y += rrand * sin(trand);
+
+	xy2.x += randDouble()*grid.W - grid.W/2;
+	xy2.y += randDouble()*grid.W - grid.W/2;
 	
 	state.pos = xy2;
 }

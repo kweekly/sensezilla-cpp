@@ -18,8 +18,8 @@ int error = 0;
 
 PF_IPS::PF_IPS() {
 	disp_help = use_rssi = use_xy = use_trajout = use_partout = use_mappng = mappng_bounds_provided = moverwrite = false;
-	hexradius = 1;
-	movespeed = 0.15;
+	cellwidth = 1;
+	movespeed = 1.25;
 	nParticles = 1000;
 	time_interval = 5.0;
 	pathmap = NULL;
@@ -61,11 +61,11 @@ mberror:
 		error = 1;
 		log_e("Error in mapbounds string");
 		return true;
-	} else if ( opt == "hexradius") {
+	} else if ( opt == "cellwidth") {
 		try{
-			hexradius = std::stod(val);
+			cellwidth = std::stod(val);
 		} catch(exception e) {
-			log_e("Error in parsing -hexradius");
+			log_e("Error in parsing -cellwidth");
 			error = 1;
 		}
 		return true;
@@ -287,8 +287,8 @@ void PF_IPS::_loadMapPNG() {
 		}
 
 		double bounds[4] = { minx, maxx, miny, maxy };
-		grid = Grid(bounds,hexradius,2);
-		int movespeed_hexes = (int)(movespeed * time_interval / hexradius + 0.9999);
+		grid = Grid(bounds,cellwidth,2);
+		int movespeed_hexes = (int)(movespeed * time_interval / cellwidth + 0.9999);
 		log_i("Move speed=%.2f m/s ( %d hexes / timestep )",movespeed,movespeed_hexes);
 
 		bool load_from_PNG = true;
@@ -430,7 +430,7 @@ void PF_IPS::printHelp() {
 		  "\t-mappng    : Color-coded map file of space\n"
 		  "\t-mapbounds : Bounds of map (in m)\n"
 		  "\t             Format: minx,maxx,miny,maxy\n"
-		  "\t-hexradius : Radius (in m) to discretize space\n"
+		  "\t-cellwidth : Radius (in m) to discretize space\n"
 		  "\t-mapcache  : Map cache (will create if necessary)\n"
 		  "\t-moverwrite: Overwrite map cache if parameters are different\n"
 		  "\n"

@@ -45,7 +45,7 @@ private:
 	bool moverwrite;
 
 	double minx,miny,maxx,maxy;
-	double hexradius;
+	double cellwidth;
 	double movespeed;
 	
 	int nParticles;

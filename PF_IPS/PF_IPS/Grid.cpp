@@ -1,25 +1,22 @@
 #include "Grid.h"
 
 Grid::Grid() {
-	R = H = S = W = 0;
+	W = 0;
 }
 
-Grid::Grid( const double pbounds[4], double hexradius, double nHexOvercoverage  ) {
+Grid::Grid( const double pbounds[4], double cellwidth, double nCellsOvercoverage  ) {
 
 	for ( int c = 0; c < 4; c++ ) this->bounds[c] = pbounds[c];
 
-	this->bounds[XMIN] -= nHexOvercoverage * hexradius * 2;
-	this->bounds[XMAX] += nHexOvercoverage * hexradius * 2;
-	this->bounds[YMIN] -= nHexOvercoverage * hexradius * 2;
-	this->bounds[YMAX] += nHexOvercoverage * hexradius * 2;
+	this->bounds[XMIN] -= nCellsOvercoverage * cellwidth;
+	this->bounds[XMAX] += nCellsOvercoverage * cellwidth;
+	this->bounds[YMIN] -= nCellsOvercoverage * cellwidth;
+	this->bounds[YMAX] += nCellsOvercoverage * cellwidth;
 
-	this->R = hexradius;
-	this->H = 2*R*sin(60.0*M_PI / 180.);
-	this->S = 3.0/2*R;
-	this->W = 2.*R;
+	this->W = cellwidth;
 
-	cols = (int)((this->bounds[XMAX] - this->bounds[XMIN])/S) + 1;
-	rows = (int)(((this->bounds[YMAX] - this->bounds[YMIN]) + H/2)/H) + 1;
+	cols = (int)((this->bounds[XMAX] - this->bounds[XMIN])/W) + 1;
+	rows = (int)((this->bounds[YMAX] - this->bounds[YMIN])/W) + 1;
 	if ( cols <= 0 || rows <= 0 ) {
 		log_e("Error: Cell tiles are to big to fit in x/y bounds!");
 	}
@@ -30,7 +27,7 @@ Grid::~Grid(void) {
 
 
 bool Grid::operator==(const Grid &other) const {
-	return rows == other.rows && cols == other.cols && H == other.H && R == other.R && S == other.S && W == other.W &&
+	return rows == other.rows && cols == other.cols && W == other.W &&
 			bounds[0] == other.bounds[0] && bounds[1] == other.bounds[1]  && bounds[2] == other.bounds[2]  && bounds[3] == other.bounds[3] ;
 }
 bool Grid::operator!=(const Grid &other) const {
@@ -47,24 +44,15 @@ int Grid::getColumns() const {
 
 xycoords Grid::getCenter( gridcoords cell ) const {
 	xycoords retval;
-	retval.y = cell.j * H + (abs(cell.i)%2)*H/2 + bounds[YMIN];
-	retval.x = cell.i * S + bounds[XMIN];
+	retval.y = W*cell.j + bounds[YMIN] + W/2;
+	retval.x = W*cell.i + bounds[XMIN] + W/2;
 	return retval;
 }
 
 gridcoords Grid::nearestCell(xycoords xy ) const {
 	gridcoords retval;
-	xy.x -= bounds[XMIN];
-	xy.y -= bounds[YMIN];
-	retval.i = (int)floor(xy.x/S);
-	double yts = (xy.y - (abs(retval.i)%2)*H/2);
-	retval.j = (int)floor(yts/H);
-	double xt = xy.x - retval.i*S;
-	double yt = yts - retval.j*H;
-	if (xt <= R*abs(0.5 - yt/H) ){
-		retval.i -= 1;
-		retval.j += -(abs(retval.i)%2) + (xy.y > H/2)?1:0;
-	}
+	retval.i = floor((xy.x - bounds[XMIN]) / W);
+	retval.j = floor((xy.y - bounds[YMIN]) / W);
 	return retval;
 }
 
@@ -122,5 +110,5 @@ vector<vector<double>> Grid::interpolateXYData( const vector<vector<double>> &da
 }
 
 string Grid::toString() {
-	return string("[") + to_string(cols) + "x" + to_string(rows) + " cell grid r=" + to_string(R) + " bounds=["+to_string(bounds[0])+"-"+to_string(bounds[1])+","+to_string(bounds[2])+"-"+to_string(bounds[3]) +"]";
+	return string("[") + to_string(cols) + "x" + to_string(rows) + " cell grid w=" + to_string(W) + " bounds=["+to_string(bounds[0])+"-"+to_string(bounds[1])+","+to_string(bounds[2])+"-"+to_string(bounds[3]) +"]";
 }

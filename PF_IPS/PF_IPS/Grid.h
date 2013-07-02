@@ -14,7 +14,7 @@ class Grid
 {
 public:
 	Grid();
-	Grid( const double pbounds[4], double hexradius, double nHexOvercoverage );
+	Grid( const double pbounds[4], double cellwidth, double nCellsOvercoverage );
 	~Grid(void);
 
 	bool operator==(const Grid &other) const;
@@ -33,7 +33,7 @@ public:
 
 public:
 	double bounds[4];
-	double H,R,S,W;
+	double W;
 
 	int rows, cols;
 

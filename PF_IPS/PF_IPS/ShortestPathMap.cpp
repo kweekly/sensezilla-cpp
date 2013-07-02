@@ -38,7 +38,7 @@ unsigned int ShortestPathMap::hex2idx(gridcoords cell) {
 	return cell.i + cell.j * grid.getColumns();
 }
 
-bool ShortestPathMap::_loadCacheParams(FILE * fin, string *pngname, Grid* grid, int *hexmovespeed) {
+bool ShortestPathMap::_loadCacheParams(FILE * fin, string *pngname, Grid* grid, int *cellmovespeed) {
 	int rd;
 	int l;
 
@@ -60,8 +60,8 @@ bool ShortestPathMap::_loadCacheParams(FILE * fin, string *pngname, Grid* grid, 
 	rd = fread(grid, sizeof(Grid),1,fin);
 	if ( rd != 1 ) return false;
 	
-	// hexmovespeed
-	rd = fread(hexmovespeed, sizeof(int),1,fin);
+	// cellmovespeed
+	rd = fread(cellmovespeed, sizeof(int),1,fin);
 	if ( rd != 1 ) return false;
 
 	return true;
@@ -99,7 +99,7 @@ rderr2:
 ShortestPathMap * ShortestPathMap::loadFromCache(const string fname) {
 	string pngname;
 	Grid grid;
-	int hexmovespeed;
+	int cellmovespeed;
 
 	FILE * fin = fopen(fname.c_str(),"rb");
 	if ( !fin ) {
@@ -107,18 +107,18 @@ ShortestPathMap * ShortestPathMap::loadFromCache(const string fname) {
 		return NULL;
 	}
 	
-	if (!_loadCacheParams(fin,&pngname,&grid,&hexmovespeed)) goto rderr;
+	if (!_loadCacheParams(fin,&pngname,&grid,&cellmovespeed)) goto rderr;
 	{
 	string grid_str = grid.toString();
 	log_i("Parameters found in map cache:");
 	log_i("\tGenerated from: %s",pngname.c_str());
 	log_i("\tBounds: %s",grid_str.c_str());
-	log_i("\tMovespeed (hexes): %d",hexmovespeed);
+	log_i("\tMovespeed (hexes): %d",cellmovespeed);
 	}
 
 	ShortestPathMap * retval = new ShortestPathMap(grid);
 	retval->pngfname = pngname;
-	retval->hexmovespeed = hexmovespeed;
+	retval->cellmovespeed = cellmovespeed;
 
 	if ( !_loadCacheData(fin,retval) ) goto rderr2;
 
@@ -133,7 +133,7 @@ rderr:
 	return NULL;
 }
 
-ShortestPathMap * ShortestPathMap::loadFromCache(const string fname, const string pngname, const Grid grid, int hexmovespeed) {
+ShortestPathMap * ShortestPathMap::loadFromCache(const string fname, const string pngname, const Grid grid, int cellmovespeed) {
 	FILE * fin = fopen(fname.c_str(),"rb");
 	if ( !fin ) {
 		log_e("Error: Cannot open cache file");
@@ -156,14 +156,14 @@ ShortestPathMap * ShortestPathMap::loadFromCache(const string fname, const strin
 		goto error1;
 	}
 
-	if ( thms != hexmovespeed ) {
+	if ( thms != cellmovespeed ) {
 		log_e("Error: Cache was generated with different movespeed parameter");
 		goto error1;
 	}
 
 	ShortestPathMap * retval = new ShortestPathMap(grid);
 	retval->pngfname = pngname;
-	retval->hexmovespeed = hexmovespeed;
+	retval->cellmovespeed = cellmovespeed;
 
 	if ( !_loadCacheData(fin,retval) ) goto rderr2;
 
@@ -184,7 +184,7 @@ void ShortestPathMap::_addCheckObs( const vector<vector<bool>> &hexdata, int col
 		}
 }
 
-set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, int position, const Grid & grid, int hexmovespeed ) {
+set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, int position, const Grid & grid, int cellmovespeed ) {
 	set<int> tocheck,retval;
 	set<int> candidates;
 
@@ -196,25 +196,24 @@ set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, in
 	}
 
 	tocheck.insert(position);
-	for ( int c = 0; c < hexmovespeed; c++ ) {
+	for ( int c = 0; c < cellmovespeed; c++ ) {
 		candidates.clear();
 		// add all neighboring nodes
 		for (set<int>::iterator i = tocheck.begin(); i != tocheck.end(); i++) {
 			int pcheck = * i;
 			int hi = pcheck % grid.getColumns();
 			int hj = pcheck / grid.getColumns();
-			if (hi % 2) { // odd
-				_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj - 1 );
-				_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj - 1 );
-			} else { // even
-				_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj + 1);
-				_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj + 1 );
-			}
-			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj );
-			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi , hj - 1 );
-			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj );
-			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi, hj + 1 );			
 
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj );
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj );
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi , hj - 1 );
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi, hj + 1 );	
+			/*
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj + 1 );	
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj + 1 );		
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi + 1, hj - 1 );			
+			_addCheckObs(hexdata, grid.getColumns(), &candidates, hi - 1, hj - 1 );			
+			*/
 			// retval = union(retval, tocheck)
 			retval.insert(pcheck);
 		}
@@ -226,10 +225,10 @@ set<int> ShortestPathMap::_nearestHexes( const vector<vector<bool>> &hexdata, in
 	return retval;	
 }
 
-ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<bool>> &hexdata, const string pngname, const Grid grid, int hexmovespeed) {
+ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<bool>> &hexdata, const string pngname, const Grid grid, int cellmovespeed) {
 	ShortestPathMap * retval = new ShortestPathMap(grid);
 	retval->pngfname = pngname;
-	retval->hexmovespeed = hexmovespeed;
+	retval->cellmovespeed = cellmovespeed;
 
 	int nidx = grid.getRows() * grid.getColumns();
 
@@ -240,7 +239,7 @@ ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<b
 			log_i("%d of %d cells completed",k,nidx);
 		}
 		vector<int> donevec;
-		set<int> nset = _nearestHexes(hexdata, k, grid, hexmovespeed);
+		set<int> nset = _nearestHexes(hexdata, k, grid, cellmovespeed);
 		donevec.assign(nset.begin(),nset.end());
 		donevec.shrink_to_fit();
 		retval->map.push_back(donevec);
@@ -261,8 +260,8 @@ void ShortestPathMap::saveToCache(string fname) {
 	// write hexgrid parameters
 	fwrite(&grid,sizeof(Grid),1,fout);
 
-	// write hexmovespeed
-	fwrite(&hexmovespeed,sizeof(hexmovespeed),1,fout);
+	// write cellmovespeed
+	fwrite(&cellmovespeed,sizeof(cellmovespeed),1,fout);
 
 	// write data
 	l = map.size();

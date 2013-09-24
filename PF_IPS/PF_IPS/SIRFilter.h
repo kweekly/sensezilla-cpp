@@ -21,6 +21,7 @@ public:
 	X_type step(const Y_type & measurement);
 	std::vector<X_type> stepall(const std::vector<Y_type> measurements);
 
+
 	std::vector<X_type> state();
 	std::vector<double> weights();
 
@@ -41,6 +42,7 @@ private:
 	size_t nParticles;
 	size_t step_no;
 	Particle ** pcache;
+	Particle * maxp_cache;
 	Particle * pscratch;
 
 	P_type params;
@@ -93,6 +95,7 @@ template <class X_type,class Y_type,class P_type> SIRFilter<X_type,Y_type,P_type
 	for (size_t c = 0; c < pcache_time; c++ ) {
 		pcache[c] = new Particle[nParticles];
 	}
+	maxp_cache = new Particle[pcache_time];
 
 	pscratch = new Particle[nParticles];
 
@@ -292,7 +295,8 @@ template <class X_type,class Y_type,class P_type> X_type SIRFilter<X_type,Y_type
 		}
 	}
 
-	// find maximum
+	
+	// find maximum prob particle
 	size_t maxidx = 0;
 	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
 		if ( pcache[step1][thread_retvals[t].maxp].prob > pcache[step1][maxidx].prob ) {
@@ -302,6 +306,9 @@ template <class X_type,class Y_type,class P_type> X_type SIRFilter<X_type,Y_type
 	if ( maxidx == NO_PARENT ) {
 		log_i("Warning: No maximum probability particle");
 	}
+
+	maxp_cache[step1] = pcache[step1][maxidx];
+
 	return pcache[step1][maxidx].state;
 }
 
@@ -326,6 +333,6 @@ template <class X_type,class Y_type,class P_type> std::vector<double>SIRFilter<X
 	std::vector<double> retval;
 	retval.reserve(nParticles);
 	for (size_t c = 0; c < nParticles; c++ )
-		retval.push_back(pcache[step_no % pcache_time][c].weight);
+		retval.push_back(pcache[step_no % pcache_time][c].prob);
 	return retval;
 }

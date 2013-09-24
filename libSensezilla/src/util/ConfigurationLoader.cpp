@@ -119,13 +119,11 @@ void ConfigurationLoader::_readConfiguration(string fname, map<string,map<string
 			if ( f2.find("/") != 0 && f2.find("\\") != 0 ) {
 				size_t pos1 = fname.rfind("\\");
 				size_t pos2 = fname.rfind("/");
-				if ( pos1 < pos2 && pos2 != string::npos) {
+				if ( (pos1 < pos2 || pos1 == string::npos) && pos2 != string::npos) {
 					f2 = fname.substr( 0, pos2 + 1 ) + f2;
-				} else if ( pos2 < pos1 && pos1 != string::npos ) {
+				} else if ( (pos2 < pos1 || pos2 == string::npos) && pos1 != string::npos ) {
 					f2 = fname.substr( 0, pos1 + 1 ) + f2;
 				} 
-				
-				
 			}
 			//std::cout << "Include "<<f2<<endl;
 			_readConfiguration(f2, retval);		

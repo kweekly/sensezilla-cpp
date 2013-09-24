@@ -81,6 +81,9 @@ private:
 	// Sensor Data
 	vector<TimeSeries *> rssi_data;
 
+	State current_best_state;
+	int current_best_state_index;
+
 };
 
 

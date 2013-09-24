@@ -9,11 +9,13 @@
 #define COLOR_OBSTACLE		0xff000000
 #define COLOR_PARTICLE		0xff00ff00
 #define COLOR_GROUNDTRUTH   0x000000ff
+#define COLOR_ESTIMATE		0x00ff0000
 #define COLOR_RSSISENSORS	0x00ffff00
 #define COLOR_GRIDLINES		0xff666666
 #define COLOR_AXIS			0xffaa6666
 
 #define RADIUS_GROUNDTRUTH  5
+#define RADIUS_ESTIMATE		5
 #define RADIUS_RSSISENSORS	3
 
 Visualization::Visualization(PF_IPS * p) {
@@ -124,6 +126,7 @@ void Visualization::_handle_events() {
 #define PY(y) ( (int)(0.5+(y - prog->miny) * height / (prog->maxy - prog->miny)))
 
 #define IFINB if ( px >= 0 && py >= 0 && px < width-1 && py < height-1)
+#define IFINB2(px,py) if ( px >= 0 && py >= 0 && px < width-1 && py < height-1)
 
 void Visualization::_render() {
 	if ( screen == nullptr || screen == NULL ) return;
@@ -163,7 +166,7 @@ void Visualization::_render() {
 		}
 	}
 
-
+	// draw particles
 	SIRFilter<State,Observation,Params> * filter = prog->filter;
 	size_t s1 = (filter->step_no+1) % filter->pcache_time;
 	for (size_t p = 0; p < filter->nParticles; p++ ) {
@@ -174,6 +177,7 @@ void Visualization::_render() {
 		}
 	}
 
+	// draw ground truth blob
 	if ( prog->gtdata.size() > 0 ) {
 		int px = PX(prog->gtdata[0]->getPoint(prog->TIME));
 		int py = PY(prog->gtdata[1]->getPoint(prog->TIME)); 
@@ -183,6 +187,41 @@ void Visualization::_render() {
 		}
 	}
 
+	// draw max estimate blob
+	int px = PX(prog->current_best_state.pos.x);
+	int py = PY(prog->current_best_state.pos.y);
+	IFINB {
+		Draw_FillCircle(screen, px, py, RADIUS_ESTIMATE, COLOR_ESTIMATE);
+	}
+
+	int last_px = px;
+	int last_py = py;
+
+	// draw max estimate trajectory
+	size_t parent = filter->pcache[s1][prog->current_best_state_index].parent;
+	
+	
+	for ( size_t c = 1; c < filter->pcache_time; c++ ) {
+		if ( parent >= filter->nParticles ) { break; }
+		size_t idx = ( prog->current_best_state_index - c + filter->pcache_time ) % filter->pcache_time;
+
+		//printf("%d : parent=%d\n",idx,parent);
+
+		int px = PX(filter->pcache[idx][parent].state.pos.x);
+		int py = PY(filter->pcache[idx][parent].state.pos.y);
+		IFINB {
+			Draw_FillCircle(screen, px, py, RADIUS_ESTIMATE/2, COLOR_ESTIMATE);
+			IFINB2(last_px,last_py) {
+				Draw_Line(screen,px,py,last_px,last_py,COLOR_ESTIMATE);
+			}
+		}
+		parent = filter->pcache[idx][parent].parent;
+		last_px = px;
+		last_py = py;
+	}
+	
+
+	// draw sensors
 	if ( prog->rssiparam_fname.size() > 0 ) {
 		for ( size_t s = 0; s < prog->sensors.size(); s++ ){
 			xycoords pos = prog->sensors[s].pos;

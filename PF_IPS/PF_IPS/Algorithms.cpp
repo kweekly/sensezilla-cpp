@@ -36,6 +36,44 @@ void PF_IPS::_sirFilter() {
 			last_update = cur_time;
 			last_step_no = step_no;
 		}
+		
+		// do the step
+		current_best_state = filter->step(o);
+
+		// find "maximum probability" particle
+		vector<State> states = filter->state();
+		vector<double> weights = filter->weights();
+
+		double sumx = 0,sumy = 0,sumw = 0;
+		for ( int c = 0; c < states.size(); c++ ) {
+			if ( !_isnan(states[c].pos.x + states[c].pos.y + weights[c]) ) {
+				
+				sumx += states[c].pos.x * weights[c];
+				sumy += states[c].pos.y * weights[c];
+				sumw += weights[c];
+				
+				/*
+				sumx += states[c].pos.x;
+				sumy += states[c].pos.y;
+				sumw += 1; 
+				*/
+			}
+		}
+		if (sumw > 0) {
+			current_best_state.pos.x = sumx / sumw;
+			current_best_state.pos.y = sumy / sumw;
+		}
+		double mindist = 9e99;
+		int minidx = 0;
+		for ( int c = 0; c < states.size(); c++ ) {
+			if ( dist(states[c].pos, current_best_state.pos) < mindist ) {
+				minidx = c;
+				mindist = dist(states[c].pos, current_best_state.pos);
+			}
+		}
+		current_best_state = states[minidx];
+		current_best_state_index = minidx;
+
 		// check if visualizer wants access
 		if ( req_data_lock ) {
 			data_locked_mutex.unlock();
@@ -43,9 +81,6 @@ void PF_IPS::_sirFilter() {
 			data_locked_ack_mutex.unlock();
 			data_locked_mutex.lock(); // relock the data
 		}
-
-		// do the step
-		State best = filter->step(o);
 	}
 	delete filter;
 }
@@ -110,9 +145,10 @@ double PF_IPS::observation_model(const State & in_state, const Observation & mea
 void PF_IPS::_get_gaussian_parameters(RSSISensor * sensor, double d, double & mu, double & sigma) {
 		int didx = 0;
 		mu = sigma = 0;
-		while( didx < sensor->gauss_calib_r.size() && d < sensor->gauss_calib_r[didx] ) {
+		while( didx < sensor->gauss_calib_r.size() && d >= sensor->gauss_calib_r[didx] ) {
 			didx++;
 		}
+	
 		if ( didx >= sensor->gauss_calib_r.size() - 1 ) {
 			mu = sensor->gauss_calib_mu.back();
 			sigma = sensor->gauss_calib_sigma.back();
@@ -122,6 +158,8 @@ void PF_IPS::_get_gaussian_parameters(RSSISensor * sensor, double d, double & mu
 		} else {
 			double dd = (d - sensor->gauss_calib_r[didx])/(sensor->gauss_calib_r[didx+1] - sensor->gauss_calib_r[didx]);
 			mu = dd*sensor->gauss_calib_mu[didx+1] + (1-dd)*sensor->gauss_calib_mu[didx];
-			sigma = mu = dd*sensor->gauss_calib_sigma[didx+1] + (1-dd)*sensor->gauss_calib_sigma[didx];
+			sigma = dd*sensor->gauss_calib_sigma[didx+1] + (1-dd)*sensor->gauss_calib_sigma[didx];
 		}
+
+
 }

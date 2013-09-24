@@ -20,6 +20,7 @@ PF_IPS::PF_IPS() {
 	disp_help = use_rssi = use_xy = use_trajout = use_partout = use_mappng = mappng_bounds_provided = moverwrite = false;
 	cellwidth = 1;
 	movespeed = 1.25;
+	//movespeed = 0.6;
 	nParticles = 1000;
 	time_interval = 5.0;
 	pathmap = NULL;
@@ -123,6 +124,9 @@ gterror:
 		error = 1;
 		log_e("Error in gtorigin string");
 		return true;
+	} else if ( opt == "simulate") {
+		simulate = true;
+		return true;
 	}
 
 
@@ -135,9 +139,9 @@ void PF_IPS::_loadRSSIData() {
 		rssi_basedir.assign("./");
 		size_t pos1 = rssiparam_fname.rfind("\\");
 		size_t pos2 = rssiparam_fname.rfind("/");
-		if ( pos1 < pos2 && pos2 != string::npos) {
+		if ( (pos1 < pos2 || pos1 == string::npos) && pos2 != string::npos) {
 			rssi_basedir = rssiparam_fname.substr( 0, pos2 + 1 );
-		} else if ( pos2 < pos1 && pos1 != string::npos ) {
+		} else if ( (pos2 < pos1 || pos2 == string::npos) && pos1 != string::npos ) {
 			rssi_basedir = rssiparam_fname.substr( 0, pos1 + 1 );
 		} 
 
@@ -194,7 +198,7 @@ void PF_IPS::_loadRSSIData() {
 		}
 		log_i("Have sensor data from t=%.0f to t=%.0f for a total of %d points (dt=%.2f)",mint,maxt,T.size(),time_interval);
 		TimeSeries * gtx,*gty;
-		if ( simulate ) {
+		if ( gtdata.size() > 0 ) {
 			log_i("Interpolating ground truth.");
 			*(gtdata[0]) += gt_ref_X;
 			*(gtdata[1]) += gt_ref_Y;
@@ -375,8 +379,11 @@ void PF_IPS::start() {
 			log_e("Could not open ground truth file");
 			goto error;
 		}
-		simulate = true;
+	} else if ( simulate ) {
+		log_e("Simulation specified, but no ground truth file");
+		goto error;
 	}
+		
 
 	if ( use_rssi ) {
 		_loadRSSIData();
@@ -441,6 +448,7 @@ void PF_IPS::printHelp() {
 		  "\n"
 		  "\t-groundtruth : Ground truth CSV\n"
 		  "\t-gtorigin	  : Origin of the ground truth\n"
+		  "\t-simulate	  : Generate simulated measurements using groundtruth\n"
 		  "\n"
 		  "\t-trajout   : Max-likelihood state output file\n"
 		  "\t-partout   : Particle state estimate and weights\n"

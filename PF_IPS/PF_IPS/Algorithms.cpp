@@ -160,6 +160,4 @@ void PF_IPS::_get_gaussian_parameters(RSSISensor * sensor, double d, double & mu
 			mu = dd*sensor->gauss_calib_mu[didx+1] + (1-dd)*sensor->gauss_calib_mu[didx];
 			sigma = dd*sensor->gauss_calib_sigma[didx+1] + (1-dd)*sensor->gauss_calib_sigma[didx];
 		}
-
-
 }

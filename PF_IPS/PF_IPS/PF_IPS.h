@@ -25,13 +25,14 @@ private:
 	static void transition_model(State & state, Params & params);
 	static double observation_model(const State & in_state, const Observation & measurement, Params & params);
 	static void _get_gaussian_parameters(RSSISensor * sensor, double distance, double & mu, double & sigma);
+	
 
 	void _sirFilter();
 
 	void _loadRSSIData();
+	void _calibrate_stat_distributions();
 	void _loadXYData();
 	void _loadMapPNG();
-	
 
 	bool disp_help;
 

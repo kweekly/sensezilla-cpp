@@ -271,6 +271,11 @@ error:
 
 }
 
+void PF_IPS::_calibrate_stat_distributions() {
+
+
+}
+
 void PF_IPS::_loadXYData() {
 	xy_config = ConfigurationLoader::readConfiguration(xyparam_fname);
 

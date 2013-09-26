@@ -14,9 +14,11 @@ struct RSSISensor {
 	string IDstr;
 	xycoords pos;
 
+	
 	vector<double> gauss_calib_r;
 	vector<double> gauss_calib_mu;
 	vector<double> gauss_calib_sigma;
+	
 };
 
 class PF_IPS;

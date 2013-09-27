@@ -156,7 +156,7 @@ void PF_IPS::_loadRSSIData() {
 			RSSISensor sense;
 			sense.IDstr = id;
 			string posstr = rssi_config[string("sensors")][string("pos_")+id].asString();
-			sense.pos.y = std::stof(posstr.substr(0,posstr.find(' ')))  + sense_ref_Y;
+			sense.pos.y = -std::stof(posstr.substr(0,posstr.find(' ')))  + sense_ref_Y;
 			sense.pos.x = std::stof(posstr.substr(posstr.rfind(' ')+1)) + sense_ref_X;
 			log_i("RFID sensor %s at (%.2f, %.2f)",sense.IDstr.c_str(),sense.pos.x,sense.pos.y);
 			

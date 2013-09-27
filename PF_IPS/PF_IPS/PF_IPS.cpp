@@ -180,6 +180,7 @@ void PF_IPS::_loadRSSIData() {
 
 		// finding min and max times
 		double mint=9e99, maxt=-9e99;
+		int maxi,maxj;
 		for ( int i = 0; i < allrssi.size(); i++) {
 			for ( int j = 0; j < allrssi[i].size(); j++) {
 				if ( allrssi[i][j] == NULL || allrssi[i][j]->t.size() == 0 ) continue;
@@ -188,6 +189,8 @@ void PF_IPS::_loadRSSIData() {
 				}
 				if ( allrssi[i][j]->t.back() > maxt ) {
 					maxt = allrssi[i][j]->t.back();
+					maxi = i;
+					maxj = j;
 				}
 			}
 		}

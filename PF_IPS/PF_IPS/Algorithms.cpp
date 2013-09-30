@@ -12,6 +12,7 @@ void PF_IPS::_sirFilter() {
 		State s;
 		s.pos.x = randDouble() * (maxx-minx) + minx;
 		s.pos.y = randDouble() * (maxy-miny) + miny;
+		s.attenuation = randDouble() * (5.0) - 2.5;
 		X0.push_back(s);
 	}
 
@@ -74,6 +75,8 @@ void PF_IPS::_sirFilter() {
 		}
 		current_best_state = states[minidx];
 		current_best_state_index = minidx;
+		best_state_history.push_back(current_best_state);
+		best_state_history_times.push_back(TIME);
 
 		// check if visualizer wants access
 		if ( req_data_lock ) {
@@ -118,6 +121,8 @@ void PF_IPS::transition_model(State & state, Params & params) {
 	xy2.y += randDouble()*grid.W - grid.W/2;
 	
 	state.pos = xy2;
+
+	state.attenuation += randDouble()*1-0.5;
 }
 
 double PF_IPS::observation_model(const State & in_state, const Observation & measurement, Params & params) {
@@ -129,20 +134,29 @@ double PF_IPS::observation_model(const State & in_state, const Observation & mea
 	for (size_t sensor_idx = 0; sensor_idx < measurement.rfid_system_rssi_measurements.size(); sensor_idx++ ) {
 		if ( !_isnan(measurement.rfid_system_rssi_measurements[sensor_idx]) ) {
 			RSSISensor * sensor = &(params.context->sensors[sensor_idx]);
+			double meas = measurement.rfid_system_rssi_measurements[sensor_idx];
 			double d = dist(in_state.pos,sensor->pos);
-			double mu,sigma;
 			
+			meas += in_state.attenuation;
+			
+#ifdef GAUSS_MODE
+			double mu,sigma;
 			_get_gaussian_parameters(sensor, d, mu, sigma);
 
 			// for gaussian distribution (normal PDF)
-			double mudiff = (measurement.rfid_system_rssi_measurements[sensor_idx]-mu);
+			double mudiff = (meas-mu);
 			prob *= 1.0/(sigma*sqrt(2*M_PI)) * exp( -mudiff*mudiff / (2*sigma*sigma) );
+#endif
+#ifdef RCELL_MODE
+			prob *= _evaluate_rcell_prob(sensor, d, meas);
+#endif
 			
 		}
 	}
 	return prob;
 }
 
+#ifdef GAUSS_MODE
 void PF_IPS::_get_gaussian_parameters(RSSISensor * sensor, double d, double & mu, double & sigma) {
 		int didx = 0;
 		mu = sigma = 0;
@@ -164,3 +178,28 @@ void PF_IPS::_get_gaussian_parameters(RSSISensor * sensor, double d, double & mu
 
 		sigma = 25;
 }
+#endif
+
+#ifdef RCELL_MODE
+double PF_IPS::_evaluate_rcell_prob(RSSISensor * sensor, double distance, double measurement) {
+	for ( int c = 0; c < sensor->rcell_calib_r.size(); c++ ) {
+		if ( sensor->rcell_calib_r[c] > distance ) {
+			for ( int d = 0; d < sensor->rcell_calib_x.size(); d++ ) {
+				if ( sensor->rcell_calib_x[d] > measurement ) {
+					if ( d == 0 ) return 0; 
+					// interpolate
+					double xdist = measurement - sensor->rcell_calib_x[d-1];
+					double dx = sensor->rcell_calib_x[d] - sensor->rcell_calib_x[d-1];
+					double xdistfrac = xdist / dx;
+					return sensor->rcell_calib_f[c][d-1]*(1-xdist) + sensor->rcell_calib_f[c][d]*(xdist);
+				}
+			} 
+			// last one
+			return sensor->rcell_calib_f[c].back();
+		}
+	}
+	// r is too great
+	//log_i("Warning, r=%.2f is too great... not in calibration data (max is %.2f)",distance,sensor->rcell_calib_r.back());
+	return 0.0;
+}
+#endif

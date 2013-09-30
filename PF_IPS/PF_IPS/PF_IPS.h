@@ -24,8 +24,13 @@ private:
 	SIRFilter<State,Observation,Params> * filter;
 	static void transition_model(State & state, Params & params);
 	static double observation_model(const State & in_state, const Observation & measurement, Params & params);
+
+#ifdef GAUSS_MODE
 	static void _get_gaussian_parameters(RSSISensor * sensor, double distance, double & mu, double & sigma);
-	
+#endif
+#ifdef RCELL_MODE
+	static double _evaluate_rcell_prob(RSSISensor * sensor, double distance, double measurement);
+#endif
 
 	void _sirFilter();
 
@@ -84,7 +89,8 @@ private:
 
 	State current_best_state;
 	int current_best_state_index;
-
+	vector<State> best_state_history;
+	vector<double> best_state_history_times;
 };
 
 

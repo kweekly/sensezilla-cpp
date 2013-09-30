@@ -27,6 +27,23 @@ PF_IPS::PF_IPS() {
 	req_data_lock = false;
 	simulate = false;
 	TIME = -1;
+
+	// -rssiparam $(SolutionDir)/data/test5/rssiparam.conf -particles 10000 -dt 1.0 -trajout $(SolutionDir)/data/trajout.csv -partout $(SolutionDir)/data/partout.csv -mappng ../data/floorplan_new.png -mapbounds -16.011,46.85,-30.807,15.954 -mapcache ../data/mapcache.dat -moverwrite -cellwidth 0.25 -gtorigin 1.6,1.8 -groundtruth ../data/pos_5.txt
+	// defaults
+	use_rssi = true; rssiparam_fname.assign("../data/test5/rssiparam.conf");
+	nParticles = 10000;
+	time_interval = 1.0;
+	use_trajout = true; trajout_fname.assign("../data/trajout.csv");
+	use_partout = true; partout_fname.assign("../data/partout.csv");
+	use_mappng = true; mappng_fname.assign("../data/floorplan_new.png");
+	mappng_bounds_provided = true; minx = -16.011; maxx = 46.85; miny = -30.807; maxy = 15.954;
+	mapcache_fname = "../data/mapcache.dat";
+	moverwrite = true;
+	cellwidth = 0.25;
+	gt_ref_X = 1.6;
+	gt_ref_Y = 1.8;
+	groundtruth_fname.assign("../data/pos_5.txt");
+
 }
 PF_IPS::~PF_IPS() {
 }
@@ -148,6 +165,7 @@ void PF_IPS::_loadRSSIData() {
 		sense_ref_X = rssi_config[string("sensors")][string("refX")].asDouble();
 		sense_ref_Y = rssi_config[string("sensors")][string("refY")].asDouble();
 		sense_ref_Z = rssi_config[string("sensors")][string("refZ")].asDouble();
+		string calibration_data = rssi_config[string("sensors")][string("calibration_data")].asString();
 
 		vector<vector<TimeSeries *>> allrssi;
 		int sidx = 0;
@@ -160,12 +178,25 @@ void PF_IPS::_loadRSSIData() {
 			sense.pos.x = std::stof(posstr.substr(posstr.rfind(' ')+1)) + sense_ref_X;
 			log_i("RFID sensor %s at (%.2f, %.2f)",sense.IDstr.c_str(),sense.pos.x,sense.pos.y);
 			
-			vector<TimeSeries *> gaussts = CSVLoader::loadMultiTSfromCSV(rssi_basedir+string("gaussparams_s")+id+string(".csv"));
+#ifdef GAUSS_MODE
+			vector<TimeSeries *> gaussts = CSVLoader::loadMultiTSfromCSV(calibration_data+string("/gaussparams_s")+id+string(".csv"));
 			sense.gauss_calib_r = gaussts[0]->t;
 			sense.gauss_calib_mu = gaussts[0]->v;
 			sense.gauss_calib_sigma = gaussts[1]->v;
 			delete gaussts[0];
 			delete gaussts[1];
+#endif
+#ifdef RCELL_MODE
+			vector<TimeSeries *> rcellts = CSVLoader::loadMultiTSfromCSV(calibration_data+string("/rcellparams_s")+id+string(".csv"));
+			sense.rcell_calib_x = rcellts[0]->t;
+			sense.rcell_calib_x.erase(sense.rcell_calib_x.begin());
+			for ( int c = 0 ; c < rcellts.size(); c++ ) {
+				sense.rcell_calib_r.push_back(rcellts[c]->v[0]);
+				rcellts[c]->v.erase(rcellts[c]->v.begin());
+				sense.rcell_calib_f.push_back(rcellts[c]->v);
+				delete rcellts[c];
+			}
+#endif
 
 			sensors.push_back( sense );
 			allrssi.push_back(vector<TimeSeries *>());
@@ -237,9 +268,15 @@ void PF_IPS::_loadRSSIData() {
 					xycoords gtpos = {gtx->v[ti],gty->v[ti]};
 					xycoords spos = sensors[i].pos;
 					double d = dist(gtpos,spos);
+
+#ifdef GAUSS_MODE
 					double mu,sigma;
 					_get_gaussian_parameters(&(sensors[i]),d,mu,sigma);
 					ts->v[ti] = stdnorm(rengine) * sigma + mu;
+#endif
+#ifdef RCELL_MODE
+					ts->v[ti] = 0.0;
+#endif
 				}
 				rssi_data.push_back(ts);
 			} else {
@@ -417,6 +454,20 @@ void PF_IPS::start() {
 
 	}
 	
+	if ( trajout_fname != "" ){
+		vector<TimeSeries *> trajts;
+		TimeSeries * xts = new TimeSeries();
+		TimeSeries * yts = new TimeSeries();
+		for ( int c = 0; c < best_state_history.size(); c++ ) {
+			xts->insertPointAtEnd(best_state_history_times[c],best_state_history[c].pos.x);
+			yts->insertPointAtEnd(best_state_history_times[c],best_state_history[c].pos.y);
+		}
+		trajts.push_back(xts);
+		trajts.push_back(yts);
+		CSVLoader::writeMultiTStoCSV(trajout_fname,trajts);
+		delete(xts);
+		delete(yts);
+	}
 
 	error:
 	// clean-up

@@ -94,9 +94,9 @@ void CSVLoader::writeMultiTStoCSV(string fname,const vector<TimeSeries *> &ts, i
 		for ( size_t d = 0; d < ts.size(); d++ ) {
 			if ( d < ts.size() - 1 ) {
 				if ( fabs(ts[d]->v[c]) > 1e-50 )
-					fout << 0 << ",";
-				else
 					fout << ts[d]->v[c] << ",";
+				else
+					fout << 0 << ",";
 			} else {
 				if ( fabs(ts[d]->v[c]) > 1e-50 )
 					fout << ts[d]->v[c]<<endl;

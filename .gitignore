@@ -49,3 +49,4 @@ PF_IPS/libSensezilla/libSensezilla.vcxproj.filters
 PF_IPS/PF_IPS.opensdf
 RemoteSystemsTempFiles/.project
 transition_chunker/.settings/language.settings.xml
+*.asv

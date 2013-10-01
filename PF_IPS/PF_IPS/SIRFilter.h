@@ -7,6 +7,7 @@
 
 
 #define NUM_PF_THREADS 12
+#define SIRFN(X) template <class X_type,class Y_type,class P_type> X SIRFilter<X_type,Y_type,P_type>
 
 template <class X_type,class Y_type,class P_type>
 class SIRFilter {
@@ -17,6 +18,9 @@ public:
 				const P_type & parms,
 				size_t trajtime = 100	);
 	~SIRFilter();
+
+	void set_reposition_ratio(double ratio, void (*repositioner)(X_type & state, P_type &params));
+
 
 	X_type step(const Y_type & measurement);
 	std::vector<X_type> stepall(const std::vector<Y_type> measurements);
@@ -40,6 +44,7 @@ private:
 
 	size_t pcache_time;
 	size_t nParticles;
+	double reposition_ratio;
 	size_t step_no;
 	Particle ** pcache;
 	Particle * maxp_cache;
@@ -50,6 +55,7 @@ private:
 	// User-supplied functions
 	void (*transition_model)(X_type & state, P_type & params);
 	double (*observation_model)(const X_type & in_state, const Y_type & measurement, P_type & params);
+	void (*repositioner)(X_type & state, P_type & params);
 
 	// excecution threads
 	class ThreadReturn {
@@ -80,11 +86,11 @@ private:
 
 #include "SIRFilter.h"
 
-template <class X_type,class Y_type,class P_type> SIRFilter<X_type,Y_type,P_type>::SIRFilter(const std::vector<X_type> X0, 
-																							 void (*tm)(X_type & state, P_type & params),
-																							 double (*om)(const X_type & in_state, const Y_type & measurement, P_type & params),
-																							 const P_type & parms, 
-																							 size_t trajtime) {
+SIRFN( )::SIRFilter(const std::vector<X_type> X0, 
+					void (*tm)(X_type & state, P_type & params),
+					double (*om)(const X_type & in_state, const Y_type & measurement, P_type & params),
+					const P_type & parms, 
+					size_t trajtime) {
 	params = parms;
 	transition_model = tm;
 	observation_model = om;
@@ -114,9 +120,11 @@ template <class X_type,class Y_type,class P_type> SIRFilter<X_type,Y_type,P_type
 		thread_working_mutex[c].lock();
 		thread_working_mutex[c].unlock();
 	}
+
+	this->repositioner = NULL;
 }
 
-template <class X_type,class Y_type,class P_type> SIRFilter<X_type,Y_type,P_type>::~SIRFilter() {
+SIRFN()::~SIRFilter() {
 	program_alive = false;
 	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
 		thread_waiting_mutex[t].unlock();
@@ -134,14 +142,19 @@ template <class X_type,class Y_type,class P_type> SIRFilter<X_type,Y_type,P_type
 	}
 }
 
-template <class X_type,class Y_type,class P_type> int SIRFilter<X_type,Y_type,P_type>::particle_comp_fn(const void * p1, const void * p2) {
+SIRFN(void)::set_reposition_ratio(double ratio, void (*repositioner)(X_type & state, P_type &params)) {
+	reposition_ratio = ratio;
+	this->repositioner = repositioner;
+}
+
+SIRFN(int)::particle_comp_fn(const void * p1, const void * p2) {
 	double v = ((Particle *)p1)->prob - ((Particle*)p2)->prob;
 	if ( v == 0 ) return 0;
 	if ( v > 0 ) return 1;
 	return -1;
 }
 
-template <class X_type,class Y_type,class P_type> void SIRFilter<X_type,Y_type,P_type>::_worker_thread(int thread_no) {
+SIRFN(void)::_worker_thread(int thread_no) {
 	size_t step0, step1;
 	size_t start, end;
 	thread_working_mutex[thread_no].lock();
@@ -206,7 +219,7 @@ template <class X_type,class Y_type,class P_type> void SIRFilter<X_type,Y_type,P
 	log_i("Worker Thread %d ended",thread_no);
 }
 
-template <class X_type,class Y_type,class P_type> void SIRFilter<X_type,Y_type,P_type>::_run_workers(WorkStep ws){
+SIRFN(void)::_run_workers(WorkStep ws){
 	work_step = ws;
 	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
 		thread_waiting_mutex[t].unlock();  // signal that child can continue
@@ -222,7 +235,7 @@ template <class X_type,class Y_type,class P_type> void SIRFilter<X_type,Y_type,P
 	}
 }
 
-template <class X_type,class Y_type,class P_type> X_type SIRFilter<X_type,Y_type,P_type>::step(const Y_type & measurement) {
+SIRFN(X_type)::step(const Y_type & measurement) {
 	size_t step0, step1;
 
 	current_measurement = &measurement;
@@ -231,9 +244,18 @@ template <class X_type,class Y_type,class P_type> X_type SIRFilter<X_type,Y_type
 	step0 = step_no % pcache_time;
 	step1 = (step_no + 1) % pcache_time;
 
-	// Discrete re-sampling of particles
-	for ( size_t p = 0; p < nParticles; p++ ) {
-		pcache[step1][p].prob = randDouble(); // create new list of random numbers from 0 to 1.0
+	// Discrete re-sampling of particles, however we reserve some to be repositioned
+	size_t p = 0;
+	if ( repositioner != NULL ) {
+		for ( p = 0; p < (size_t)(reposition_ratio * nParticles); p++ ) {
+			pcache[step1][p].prob = 0;
+			repositioner(pcache[step1][p].state,params);
+		}
+	}
+	for (; p < nParticles; p++ ) {
+		do {
+			pcache[step1][p].prob = randDouble(); // create new list of random numbers from 0 to 1.0
+		} while (pcache[step1][p].prob == 0); // 0 has special meaning
 	}
 	
 	// sort step1 in order using worker threads
@@ -258,14 +280,15 @@ template <class X_type,class Y_type,class P_type> X_type SIRFilter<X_type,Y_type
 		ptrs[mint]++;
 	}
 
-	/*for ( size_t p = 0; p < nParticles-1; p++ ) {
-		if ( pcache[step1][p].prob > pcache[step1][p+1].prob ) {
-			log_e("ERROR SORT DIDN'T WORK");
-		}
-	}*/
+	// array of pcache[step1][p] now contains random numbers sorted ascending
 	size_t p1 = 0;
+	size_t p2 = 0;
+	// skip 0 probs
+	for ( p2 = 0; p2 < nParticles; p2++ ) {
+		if ( pcache[step1][p2].prob != 0) break;
+	}
 	double cumsum = 0;
-	for ( size_t p2 = 0; p2 < nParticles; p2++ ) {
+	for ( ; p2 < nParticles; p2++ ) {
 		while ( pcache[step1][p2].prob > cumsum && p1 < nParticles ) {
 			cumsum += pcache[step0][p1].prob;
 			p1++;
@@ -312,7 +335,7 @@ template <class X_type,class Y_type,class P_type> X_type SIRFilter<X_type,Y_type
 	return pcache[step1][maxidx].state;
 }
 
-template <class X_type,class Y_type,class P_type> vector<X_type> SIRFilter<X_type,Y_type,P_type>::stepall(const std::vector<Y_type> measurements) {
+SIRFN(vector<X_type>)::stepall(const std::vector<Y_type> measurements) {
 	vector<X_type> retval;
 	retval.reserve(measurements.size());
 	for (vector<Y_type>::iterator iter = measurements.begin(); iter != measurements.end(); iter++) {
@@ -321,7 +344,7 @@ template <class X_type,class Y_type,class P_type> vector<X_type> SIRFilter<X_typ
 	return retval;
 }
 
-template <class X_type,class Y_type,class P_type> std::vector<X_type> SIRFilter<X_type,Y_type,P_type>::state() {
+SIRFN(vector<X_type>)::state() {
 	std::vector<X_type> retval;
 	retval.reserve(nParticles);
 	for (size_t c = 0; c < nParticles; c++ )
@@ -329,7 +352,7 @@ template <class X_type,class Y_type,class P_type> std::vector<X_type> SIRFilter<
 	return retval;
 }
 
-template <class X_type,class Y_type,class P_type> std::vector<double>SIRFilter<X_type,Y_type,P_type>::weights() {
+SIRFN(vector<double>)::weights() {
 	std::vector<double> retval;
 	retval.reserve(nParticles);
 	for (size_t c = 0; c < nParticles; c++ )

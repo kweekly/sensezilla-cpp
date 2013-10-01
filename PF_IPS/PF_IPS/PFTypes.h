@@ -37,6 +37,7 @@ class PF_IPS;
 class State {
 public:
 	xycoords pos;
+	
 	double attenuation;
 };
 

@@ -14,6 +14,9 @@ public:
 	void start();
 	void printHelp();
 
+	
+	bool visualize;
+
 private:
 	friend class Visualization;
 	bool req_data_lock;
@@ -24,6 +27,7 @@ private:
 	SIRFilter<State,Observation,Params> * filter;
 	static void transition_model(State & state, Params & params);
 	static double observation_model(const State & in_state, const Observation & measurement, Params & params);
+	static void repositioner(State & state, Params & params);
 
 #ifdef GAUSS_MODE
 	static void _get_gaussian_parameters(RSSISensor * sensor, double distance, double & mu, double & sigma);
@@ -55,6 +59,7 @@ private:
 	double movespeed;
 	
 	int nParticles;
+	double reposition_ratio;
 	double time_interval;
 
 	bool simulate;

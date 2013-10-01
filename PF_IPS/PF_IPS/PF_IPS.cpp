@@ -26,22 +26,24 @@ PF_IPS::PF_IPS() {
 	pathmap = NULL;
 	req_data_lock = false;
 	simulate = false;
+	visualize = true;
 	TIME = -1;
 
-	// -rssiparam $(SolutionDir)/data/test5/rssiparam.conf -particles 10000 -dt 1.0 -trajout $(SolutionDir)/data/trajout.csv -partout $(SolutionDir)/data/partout.csv -mappng ../data/floorplan_new.png -mapbounds -16.011,46.85,-30.807,15.954 -mapcache ../data/mapcache.dat -moverwrite -cellwidth 0.25 -gtorigin 1.6,1.8 -groundtruth ../data/pos_5.txt
+	
 	// defaults
 	use_rssi = true; rssiparam_fname.assign("../data/test5/rssiparam.conf");
 	nParticles = 10000;
 	time_interval = 1.0;
-	use_trajout = true; trajout_fname.assign("../data/trajout.csv");
-	use_partout = true; partout_fname.assign("../data/partout.csv");
+	use_trajout = true; trajout_fname.assign("../data/trajout_05.csv");
+	//use_partout = true; partout_fname.assign("../data/partout.csv");
 	use_mappng = true; mappng_fname.assign("../data/floorplan_new.png");
 	mappng_bounds_provided = true; minx = -16.011; maxx = 46.85; miny = -30.807; maxy = 15.954;
 	mapcache_fname = "../data/mapcache.dat";
 	moverwrite = true;
-	cellwidth = 0.25;
+	cellwidth = 0.5;
 	gt_ref_X = 1.6;
 	gt_ref_Y = 1.8;
+	reposition_ratio = 0.5; 
 	groundtruth_fname.assign("../data/pos_5.txt");
 
 }
@@ -106,6 +108,13 @@ mberror:
 			log_e("Error in parsing -particles");
 		}
 		return true;
+	} else if ( opt == "reposition") {
+		try {
+			reposition_ratio = std::stof(val);
+		} catch (exception e ) {
+			log_e("Error parsing -reposition");
+		}
+		return true;	
 	}  else if ( opt == "dt" ) {
 		try{
 			time_interval = std::stod(val);
@@ -143,6 +152,9 @@ gterror:
 		return true;
 	} else if ( opt == "simulate") {
 		simulate = true;
+		return true;
+	} else if ( opt == "novis") {
+		visualize = false;
 		return true;
 	}
 
@@ -503,11 +515,14 @@ void PF_IPS::printHelp() {
 		  "\t-statein   : Static state file\n"
 		  "\t-stateout  : Static state file (can be same as statein)\n"
 		  "\t-particles : Number of particles\n"
+		  "\t-reposition: Reposition ratio\n"
 		  "\t-movespeed : Move Speed in m/s\n"
+		  "\t-dt        : time interval in s\n"
 		  "\n"
 		  "\t-groundtruth : Ground truth CSV\n"
 		  "\t-gtorigin	  : Origin of the ground truth\n"
 		  "\t-simulate	  : Generate simulated measurements using groundtruth\n"
+		  "\t-novis       : Don't start visualizer\n"
 		  "\n"
 		  "\t-trajout   : Max-likelihood state output file\n"
 		  "\t-partout   : Particle state estimate and weights\n"
@@ -521,6 +536,9 @@ void PF_IPS::printHelp() {
 int _tmain(int argc, _TCHAR* argv[])
 {
 	
+	// initialize random seed
+	srand (time(NULL));
+
 	PF_IPS prog;
 	
 	prog.parseCL( argc, argv );
@@ -528,10 +546,12 @@ int _tmain(int argc, _TCHAR* argv[])
 		return error;
 	}
 
-	Visualization viz(&prog);
-	if ( !viz.start() ) {
-		log_e("Error: Could not start visualization");
-		return -1;
+	if ( prog.visualize ) {
+		Visualization viz(&prog);
+		if ( !viz.start() ) {
+			log_e("Error: Could not start visualization");
+			return -1;
+		}
 	}
 
 	prog.start();	

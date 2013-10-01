@@ -19,15 +19,16 @@ void PF_IPS::_sirFilter() {
 	Params p;
 	p.context = this;
 	filter = new SIRFilter<State,Observation,Params>(X0,PF_IPS::transition_model,PF_IPS::observation_model,p);
+	filter->set_reposition_ratio(reposition_ratio, repositioner);
 	Observation o;
 	time_t last_update, cur_time;
 	int last_step_no = 0;
 	const int UPDATE_INTERVAL = 1;
 	time(&last_update);
-	for ( int step_no = 0; step_no < rssi_data[0]->t.size(); step_no++ ) {
+	for ( size_t step_no = 0; step_no < rssi_data[0]->t.size(); step_no++ ) {
 		TIME = rssi_data[0]->t[step_no];
 		o.rfid_system_rssi_measurements.clear();
-		for ( int sid = 0; sid < rssi_data.size(); sid++ ) {
+		for ( size_t sid = 0; sid < rssi_data.size(); sid++ ) {
 			o.rfid_system_rssi_measurements.push_back(rssi_data[sid]->v[step_no]);
 		}
 		// display info in the console
@@ -40,24 +41,24 @@ void PF_IPS::_sirFilter() {
 		
 		// do the step
 		current_best_state = filter->step(o);
-
+		
 		// find "maximum probability" particle
 		vector<State> states = filter->state();
 		vector<double> weights = filter->weights();
 
 		double sumx = 0,sumy = 0,sumw = 0;
-		for ( int c = 0; c < states.size(); c++ ) {
+		for ( size_t c = 0; c < states.size(); c++ ) {
 			if ( !_isnan(states[c].pos.x + states[c].pos.y + weights[c]) ) {
-				
+		
 				sumx += states[c].pos.x * weights[c];
 				sumy += states[c].pos.y * weights[c];
 				sumw += weights[c];
 				
-				/*
+/*				
 				sumx += states[c].pos.x;
 				sumy += states[c].pos.y;
 				sumw += 1; 
-				*/
+	*/			
 				
 			}
 		}
@@ -67,7 +68,7 @@ void PF_IPS::_sirFilter() {
 		}
 		double mindist = 9e99;
 		int minidx = 0;
-		for ( int c = 0; c < states.size(); c++ ) {
+		for ( size_t c = 0; c < states.size(); c++ ) {
 			if ( dist(states[c].pos, current_best_state.pos) < mindist ) {
 				minidx = c;
 				mindist = dist(states[c].pos, current_best_state.pos);
@@ -75,11 +76,12 @@ void PF_IPS::_sirFilter() {
 		}
 		current_best_state = states[minidx];
 		current_best_state_index = minidx;
+		
 		best_state_history.push_back(current_best_state);
 		best_state_history_times.push_back(TIME);
 
 		// check if visualizer wants access
-		if ( req_data_lock ) {
+		if ( visualize && req_data_lock ) {
 			data_locked_mutex.unlock();
 			data_locked_ack_mutex.lock(); // wait for visualizer to acknowlege that it locked the data mutex
 			data_locked_ack_mutex.unlock();
@@ -123,6 +125,12 @@ void PF_IPS::transition_model(State & state, Params & params) {
 	state.pos = xy2;
 
 	state.attenuation += randDouble()*1-0.5;
+}
+
+void PF_IPS::repositioner(State & state, Params & params) {
+	state.pos.x = randDouble() * (params.context->maxx-params.context->minx) + params.context->minx;
+	state.pos.y = randDouble() * (params.context->maxy-params.context->miny) + params.context->miny;
+	state.attenuation = randDouble() * (5.0) - 2.5;
 }
 
 double PF_IPS::observation_model(const State & in_state, const Observation & measurement, Params & params) {
@@ -182,9 +190,9 @@ void PF_IPS::_get_gaussian_parameters(RSSISensor * sensor, double d, double & mu
 
 #ifdef RCELL_MODE
 double PF_IPS::_evaluate_rcell_prob(RSSISensor * sensor, double distance, double measurement) {
-	for ( int c = 0; c < sensor->rcell_calib_r.size(); c++ ) {
+	for ( size_t c = 0; c < sensor->rcell_calib_r.size(); c++ ) {
 		if ( sensor->rcell_calib_r[c] > distance ) {
-			for ( int d = 0; d < sensor->rcell_calib_x.size(); d++ ) {
+			for ( size_t d = 0; d < sensor->rcell_calib_x.size(); d++ ) {
 				if ( sensor->rcell_calib_x[d] > measurement ) {
 					if ( d == 0 ) return 0; 
 					// interpolate

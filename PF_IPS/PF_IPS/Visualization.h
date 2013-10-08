@@ -27,6 +27,7 @@ private:
 	SDL_Surface *background;
 	SDL_Surface *screen;
 
+	double minx,maxx,miny,maxy;
 	double scale_factor;
 	int width;
 	int height;

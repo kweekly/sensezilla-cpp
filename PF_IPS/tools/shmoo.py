@@ -3,6 +3,11 @@ from os import path
 from subprocess import call
 import numpy as np
 import matplotlib.pyplot as plt
+from pfutils import *
+
+NTESTS = 10
+
+SIMULATE = False;
 
 EXE_PATH = "../Release/PF_IPS.exe"
 OUT_DIR = "data/"
@@ -14,17 +19,7 @@ GT_FILE = "../data/pos_5.txt";
 #GT_FILE = "../data/ground_truth.txt";
 
 
-GT_ORIGIN_X = 1.6
-GT_ORIGIN_Y = 1.8
-
-def read_gt():
-    gtdata = np.loadtxt(GT_FILE,delimiter=',')
-    gtdata[:,1] = gtdata[:,1] + GT_ORIGIN_X
-    gtdata[:,2] = gtdata[:,2] + GT_ORIGIN_Y
-    gtdata[:,[1,2]] = gtdata[:,[2,1]]
-    return gtdata
-
-class NumericVariable:
+class ShmooVariable:
     def __init__(self, name, init):
         self.n = init;
         self.name = name;
@@ -34,9 +29,21 @@ class NumericVariable:
     
     def asFloat(self):
         return float(self.n);
+        
+    def asString(self):
+        return str(self.n);
+        
+    def fmt(self,v):
+        if isinstance(v,float) or isinstance(v,float):
+            return "%s_%.2f"%(self.name,v)
+        else:
+            return "%s_%s"%(self.name,v)
     
     def __str__(self):
-        return "%s_%.1f"%(self.name,self.n)
+        if isinstance(self.n,float) or isinstance(self.n,float):
+            return "%s_%.2f"%(self.name,self.n)
+        else:
+            return "%s_%s"%(self.name,self.n)
         
     def set(self, i):
         self.n = i;
@@ -46,21 +53,30 @@ class Params:
         self.rssiparam = DATA_FILE
         self.mappng = "../data/floorplan_new.png"
         self.mapbounds = "-16.011,46.85,-30.807,15.954"
-        self.cellwidth = NumericVariable("CellWidth",0.75)
+        self.cellwidth = ShmooVariable("CellWidth",0.75)
         self.mapcache = "../data/mapcache.dat"
         self.moverwrite = "-moverwrite"
-        self.particles = NumericVariable("Particles",5000)
-        self.reposition = NumericVariable("Reposition",1.0)
-        self.movespeed = NumericVariable("Movespeed",1.4)
+        self.particles = ShmooVariable("Particles",600)
+        self.reposition = ShmooVariable("Reposition",0.4)
+        self.movespeed = ShmooVariable("Movespeed",1.1)
         self.groundtruth = GT_FILE
         self.gtorigin = "%.1f,%.1f"%(GT_ORIGIN_X,GT_ORIGIN_Y)
         self.visualize = "-novis"
-        self.dt = NumericVariable("dt",5.0);
+        self.dt = ShmooVariable("dt",5.0);
+        self.maxmethod = ShmooVariable("maxmethod","weighted");
+        self.attmax = ShmooVariable("attmax",5.0)
+        self.attdiff = ShmooVariable("attdiff",1.0)
+        
+        ## other params!
+        self.nBins = ShmooVariable("nbins",5);
         
         self.trajout = OUT_DIR + "trajout_05.csv"
-        
+    
+    def rcell_cmd(self):
+        return ['python',"scatter_rcell.py","%d"%self.nBins.asInt(),"-nogui"]
+    
     def cmd(self):
-        return [EXE_PATH,"-rssiparam",self.rssiparam,
+        cargs= [EXE_PATH,"-rssiparam",self.rssiparam,
                          "-mappng",self.mappng,
                          "-mapbounds",self.mapbounds,
                          "-cellwidth","%.1f"%self.cellwidth.asFloat(),
@@ -72,18 +88,35 @@ class Params:
                          "-groundtruth",self.groundtruth,
                          "-gtorigin",self.gtorigin,
                          "-dt","%.2f"%self.dt.asFloat(),
+                         "-maxmethod",self.maxmethod.asString(),
+                         "-attenuate","%.2f,%.2f"%(self.attmax.asFloat(),self.attdiff.asFloat()),
                          self.visualize,
                          "-trajout",self.trajout];
+                         
+        if SIMULATE: cargs.append('-simulate')
+        return cargs;
                         
-def run_test(params, overwrite=False):
-    if ( overwrite and path.exists(params.trajout) ):
-        os.remove(params.trajout);        
+                        
+                        
+devnull = open(os.devnull, 'w')
+
+current_rcell = 0
+
+def run_test(params, nTests=NTESTS):
+    global current_rcell
+    if nTests > 1:
+        return [run_test(params,1) for i in range(NTESTS)]
+    
+    if path.exists(params.trajout):
+        os.remove(params.trajout)
+    
+    if ( current_rcell != params.nBins.asInt() ):
+        print " ".join(params.rcell_cmd());
+        call(params.rcell_cmd(),stdout=devnull,stderr=devnull);
+        current_rcell = params.nBins.asInt()
     
     print " ".join(params.cmd());
-    if ( path.exists(params.trajout) ):
-        print "\tSkipped."
-    else:
-        call(params.cmd());
+    call(params.cmd(),stdout=devnull,stderr=devnull);
     
     if ( not path.exists(params.trajout) ):
         raise Exception("Trajout file not created for command ("+" ".join(params.cmd())+")");
@@ -103,6 +136,9 @@ def run_sweep(params, sweepvar, sweepvals):
     return results
     
 def evaluate_error(result,gtdata,method="RMS"):
+    if isinstance(result, list):
+        return np.mean( [evaluate_error(r,gtdata,method) for r in result] );
+
     gtidx = 0;
     residx = 0;
     # align start of data
@@ -159,8 +195,12 @@ def plot_vs_gt(params, sweepvar, results, gtdata):
     plt.xlabel('time')
     
     for v in sorted(results.keys()):
-        xaxis.plot(results[v][:,0],results[v][:,1], label="%s=%.2f"%(sweepvar.name,v))
-        yaxis.plot(results[v][:,0],results[v][:,2])
+        if isinstance(results[v],list):
+            rv = results[v][-1]
+        else:
+            rv = results[v]
+        xaxis.plot(rv[:,0],rv[:,1], label=sweepvar.fmt(v).replace('_','='))
+        yaxis.plot(rv[:,0],rv[:,2])
         
     
     handles, labels = xaxis.get_legend_handles_labels()
@@ -174,6 +214,11 @@ def plot_errors(params, sweepvar, results, gtdata):
     RMSerr = [evaluate_error(results[v],gtdata,method="RMS") for v in vals]
     MAXerr = [evaluate_error(results[v],gtdata,method="MAX") for v in vals]
     MINerr = [evaluate_error(results[v],gtdata,method="MIN") for v in vals]
+    if isinstance(vals[0],str):
+        valstr = vals
+        vals = range(len(vals))
+        plt.xticks(vals,valstr);
+    
     ax.plot(vals,RMSerr,'-+',label="RMS Error");
     ax.plot(vals,MAXerr,'-+',label="MAX Error");
     ax.plot(vals,MINerr,'-+',label="MIN Error");
@@ -181,27 +226,39 @@ def plot_errors(params, sweepvar, results, gtdata):
     ax.legend(handles,labels);
     plt.xticks(vals);
     
-gtdata = read_gt()
+    prefix = ""
+    if ( len(sys.argv) >= 2 ):
+        prefix = sys.argv[1]
+        
+    fname = prefix+"_shmoo_"+sweepvar.name;
+    plt.savefig(fname+".png",dpi=600);
+    fout = open(fname+".csv",'w')
+    for vidx in range(len(vals)):
+        fout.write("%s,%.5f,%.5f,%.5f\n"%(str(vals[vidx]),RMSerr[vidx],MAXerr[vidx],MINerr[vidx]));
+    fout.close()
+
+    
 params = Params()
 
-svar = params.particles;
-#svals = [10,50,100,500,1000,5000,10000];
-svals = np.arange(100,1100,100);
+def doit(svar,svals):
+    params = Params() 
+    results = run_sweep(params, svar, svals);
+    #plot_vs_gt(params, svar, results, gtdata);
+    plot_errors(params,svar,results,gtdata);
+    
 
-#svar = params.reposition;
-#svals = np.arange(0,1.1,.1)
+gtdata = read_gt(GT_FILE)
 
-#svar = params.dt;
-#svals = np.arange(1,21,2)
+doit(params.attmax,np.arange(0,11,1));
+doit(params.attdiff,np.arange(0,5,0.5));
+sys.exit(0);
+doit(params.particles,np.arange(100,1100,100));
+doit(params.reposition,np.arange(0,1.1,.1));
+doit(params.dt,np.arange(1,21,2));
+doit(params.movespeed,np.arange(0.8,2,0.1))
+doit(params.cellwidth,np.arange(0.25,2.25,0.25))
+doit(params.maxmethod,['maxp','mean','weighted'])
+doit(params.nBins,np.arange(1,21,1))
 
-#svar = params.movespeed
-#svals = np.arange(0.8,2,0.1)
-
-#svar = params.cellwidth
-#svals = np.arange(0.25,2.25,0.25)
-
-results = run_sweep(params,svar, svals);
-plot_vs_gt(params, svar, results, gtdata);
-plot_errors(params,svar,results,gtdata);
 
 plt.show();

@@ -58,7 +58,8 @@ void AbstractProgram::parseCL(int argc, char * const * argv){
 				}
 				got_opt = false;
 			} else {
-				log_e("Unknown option %s",argv[c]);
+				option.assign(argv[c]);
+				log_e("Unknown option \"%s\"",option.c_str());
 				error = true;
 			}
 		}

@@ -12,7 +12,7 @@ void PF_IPS::_sirFilter() {
 		State s;
 		s.pos.x = randDouble() * (maxx-minx) + minx;
 		s.pos.y = randDouble() * (maxy-miny) + miny;
-		s.attenuation = randDouble() * (5.0) - 2.5;
+		s.attenuation = randDouble() * (attmax) - attmax/2;
 		X0.push_back(s);
 	}
 
@@ -25,6 +25,7 @@ void PF_IPS::_sirFilter() {
 	int last_step_no = 0;
 	const int UPDATE_INTERVAL = 1;
 	time(&last_update);
+	T0 = rssi_data[0]->t[0];
 	for ( size_t step_no = 0; step_no < rssi_data[0]->t.size(); step_no++ ) {
 		TIME = rssi_data[0]->t[step_no];
 		o.rfid_system_rssi_measurements.clear();
@@ -42,40 +43,40 @@ void PF_IPS::_sirFilter() {
 		// do the step
 		current_best_state = filter->step(o);
 		
-		// find "maximum probability" particle
-		vector<State> states = filter->state();
-		vector<double> weights = filter->weights();
+		if ( maxmethod == MAXMETHOD_WEIGHTED || maxmethod == MAXMETHOD_MEAN ) {
+			// find "maximum probability" particle
+			vector<State> states = filter->state();
+			vector<double> weights = filter->weights();
 
-		double sumx = 0,sumy = 0,sumw = 0;
-		for ( size_t c = 0; c < states.size(); c++ ) {
-			if ( !_isnan(states[c].pos.x + states[c].pos.y + weights[c]) ) {
-		
-				sumx += states[c].pos.x * weights[c];
-				sumy += states[c].pos.y * weights[c];
-				sumw += weights[c];
-				
-/*				
-				sumx += states[c].pos.x;
-				sumy += states[c].pos.y;
-				sumw += 1; 
-	*/			
-				
+			double sumx = 0,sumy = 0,sumw = 0;
+			for ( size_t c = 0; c < states.size(); c++ ) {
+				if ( !_isnan(states[c].pos.x + states[c].pos.y + weights[c]) ) {
+					if ( maxmethod == MAXMETHOD_WEIGHTED ) {
+						sumx += states[c].pos.x * weights[c];
+						sumy += states[c].pos.y * weights[c];
+						sumw += weights[c];
+					} else {
+						sumx += states[c].pos.x;
+						sumy += states[c].pos.y;
+						sumw += 1; 
+					}				
+				}
 			}
-		}
-		if (sumw > 0) {
-			current_best_state.pos.x = sumx / sumw;
-			current_best_state.pos.y = sumy / sumw;
-		}
-		double mindist = 9e99;
-		int minidx = 0;
-		for ( size_t c = 0; c < states.size(); c++ ) {
-			if ( dist(states[c].pos, current_best_state.pos) < mindist ) {
-				minidx = c;
-				mindist = dist(states[c].pos, current_best_state.pos);
+			if (sumw > 0) {
+				current_best_state.pos.x = sumx / sumw;
+				current_best_state.pos.y = sumy / sumw;
 			}
+			double mindist = 9e99;
+			int minidx = 0;
+			for ( size_t c = 0; c < states.size(); c++ ) {
+				if ( dist(states[c].pos, current_best_state.pos) < mindist ) {
+					minidx = c;
+					mindist = dist(states[c].pos, current_best_state.pos);
+				}
+			}
+			current_best_state = states[minidx];
+			current_best_state_index = minidx;
 		}
-		current_best_state = states[minidx];
-		current_best_state_index = minidx;
 		
 		best_state_history.push_back(current_best_state);
 		best_state_history_times.push_back(TIME);
@@ -124,13 +125,13 @@ void PF_IPS::transition_model(State & state, Params & params) {
 	
 	state.pos = xy2;
 
-	state.attenuation += randDouble()*1-0.5;
+	state.attenuation += randDouble()*params.context->attdiff-params.context->attdiff/2;
 }
 
 void PF_IPS::repositioner(State & state, Params & params) {
 	state.pos.x = randDouble() * (params.context->maxx-params.context->minx) + params.context->minx;
 	state.pos.y = randDouble() * (params.context->maxy-params.context->miny) + params.context->miny;
-	state.attenuation = randDouble() * (5.0) - 2.5;
+	state.attenuation = randDouble() * (params.context->attmax) - params.context->attmax/2;
 }
 
 double PF_IPS::observation_model(const State & in_state, const Observation & measurement, Params & params) {

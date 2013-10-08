@@ -50,3 +50,8 @@ PF_IPS/PF_IPS.opensdf
 RemoteSystemsTempFiles/.project
 transition_chunker/.settings/language.settings.xml
 *.asv
+*.png
+*.bmp
+
+*.pyc
+*.pyo

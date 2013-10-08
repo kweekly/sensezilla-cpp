@@ -28,23 +28,30 @@ PF_IPS::PF_IPS() {
 	simulate = false;
 	visualize = true;
 	TIME = -1;
+	maxmethod = MAXMETHOD_WEIGHTED;
 
-	
+	//viz_frames_dir.assign("../data/frames/");
 	// defaults
 	use_rssi = true; rssiparam_fname.assign("../data/test5/rssiparam.conf");
-	nParticles = 10000;
-	time_interval = 1.0;
-	use_trajout = true; trajout_fname.assign("../data/trajout_05.csv");
-	//use_partout = true; partout_fname.assign("../data/partout.csv");
+	//use_rssi = true; rssiparam_fname.assign("../data/test/rssiparam.conf");
+	nParticles = 600;
+	time_interval = 5.0;
+	//use_trajout = true; trajout_fname.assign("../data/trajout_05.csv");
+	use_partout = true; partout_fname.assign("../data/partout.csv");
 	use_mappng = true; mappng_fname.assign("../data/floorplan_new.png");
 	mappng_bounds_provided = true; minx = -16.011; maxx = 46.85; miny = -30.807; maxy = 15.954;
 	mapcache_fname = "../data/mapcache.dat";
 	moverwrite = true;
-	cellwidth = 0.5;
+	cellwidth = 0.75;
 	gt_ref_X = 1.6;
+	attmax = 5.0;
+	attdiff = 1.0;
 	gt_ref_Y = 1.8;
-	reposition_ratio = 0.5; 
+	reposition_ratio = 0.4; 
+	movespeed = 1.1;
 	groundtruth_fname.assign("../data/pos_5.txt");
+	//groundtruth_fname.assign("../data/ground_truth.txt");
+	simulate = false;
 
 }
 PF_IPS::~PF_IPS() {
@@ -115,7 +122,14 @@ mberror:
 			log_e("Error parsing -reposition");
 		}
 		return true;	
-	}  else if ( opt == "dt" ) {
+	}  else if ( opt == "maxmethod") {
+		if (val == "mean" ) maxmethod = MAXMETHOD_MEAN;
+		else if ( val == "weighted ") maxmethod = MAXMETHOD_WEIGHTED;
+		else if ( val == "maxp" ) maxmethod = MAXMETHOD_MAXP;
+		else log_e("maxmethod \"%s\" not recognized",val.c_str());
+
+		return true;
+	} else if ( opt == "dt" ) {
 		try{
 			time_interval = std::stod(val);
 		} catch (exception e) {
@@ -129,9 +143,22 @@ mberror:
 			log_e("Error in parsing -movespeed");
 		}
 		return true;	
+	} else if ( opt == "attenuation" ) {
+		const char * gtstr = val.c_str();
+		attmax = atof(gtstr);
+		if (!(gtstr = strchr(gtstr,','))) goto atterror;
+		attdiff = atof(++gtstr);
+		return true;	
+atterror:
+		error=1;
+		log_e("Error in attenuation string");
+		return true;
 	} else if ( opt == "trajout") {
 		trajout_fname = val;
 		use_trajout = true;
+		return true;
+	} else if ( opt == "frames") {
+		viz_frames_dir = val;
 		return true;
 	} else if ( opt == "partout") {
 		partout_fname = val;
@@ -143,7 +170,7 @@ mberror:
 	} else if ( opt == "gtorigin" ) {
 		const char * gtstr = val.c_str();
 		gt_ref_X = atof(gtstr);
-		if (!(gtstr = strchr(gtstr,','))) goto mberror;
+		if (!(gtstr = strchr(gtstr,','))) goto gterror;
 		gt_ref_Y = atof(++gtstr);
 		return true;
 gterror:
@@ -189,7 +216,7 @@ void PF_IPS::_loadRSSIData() {
 			sense.pos.y = -std::stof(posstr.substr(0,posstr.find(' ')))  + sense_ref_Y;
 			sense.pos.x = std::stof(posstr.substr(posstr.rfind(' ')+1)) + sense_ref_X;
 			log_i("RFID sensor %s at (%.2f, %.2f)",sense.IDstr.c_str(),sense.pos.x,sense.pos.y);
-			
+
 #ifdef GAUSS_MODE
 			vector<TimeSeries *> gaussts = CSVLoader::loadMultiTSfromCSV(calibration_data+string("/gaussparams_s")+id+string(".csv"));
 			sense.gauss_calib_r = gaussts[0]->t;
@@ -254,6 +281,10 @@ void PF_IPS::_loadRSSIData() {
 			gtdata[1] = gtdata[0];
 			gtdata[0] = gtx;
 
+			for ( int c = 0; c < gtdata[0]->t.size(); c++ ) {
+				log_i("\t\t%.1f %.2f %.2f",gtdata[0]->t[c],gtdata[0]->v[c],gtdata[1]->v[c]);
+			}
+
 			gtdata[0]->timeoffset( mint );
 			gtdata[1]->timeoffset( mint );
 			*(gtdata[1]) *= -1;
@@ -279,15 +310,42 @@ void PF_IPS::_loadRSSIData() {
 				for ( size_t ti = 0; ti < T.size(); ti++) {
 					xycoords gtpos = {gtx->v[ti],gty->v[ti]};
 					xycoords spos = sensors[i].pos;
-					double d = dist(gtpos,spos);
+					double distance = dist(gtpos,spos);
 
 #ifdef GAUSS_MODE
 					double mu,sigma;
-					_get_gaussian_parameters(&(sensors[i]),d,mu,sigma);
+					_get_gaussian_parameters(&(sensors[i]),distance,mu,sigma);
 					ts->v[ti] = stdnorm(rengine) * sigma + mu;
 #endif
 #ifdef RCELL_MODE
-					ts->v[ti] = 0.0;
+					RSSISensor * sensor = &(sensors[i]);
+					size_t c = 0,d;
+					double val,cumsum;
+					for ( c = 0; c < sensor->rcell_calib_r.size(); c++ ) {
+						if ( sensor->rcell_calib_r[c] > distance ) {
+							double fsum = 0.0;
+							for ( d = 0; d < sensor->rcell_calib_f[c].size(); d++ ) fsum += sensor->rcell_calib_f[c][d];
+							val = randDouble() * fsum;
+							cumsum = 0.0;
+							for (  d = 0; d < sensor->rcell_calib_f[c].size(); d++ ) {
+								cumsum += sensor->rcell_calib_f[c][d];
+								if ( cumsum >= val ) {
+									ts->v[ti] = sensor->rcell_calib_x[d];
+									break;
+								}
+							}
+							if ( d == sensor->rcell_calib_f[c].size() ) {
+								log_i("Last point picked (probably not good)");
+								ts->v[ti] = sensor->rcell_calib_x.back();
+							}
+							break;
+						}
+					}
+					if ( c == sensor->rcell_calib_r.size() ) {
+						log_i("\tDistance %.2f too big",distance);
+					}
+					val = val;
+					
 #endif
 				}
 				rssi_data.push_back(ts);
@@ -518,6 +576,8 @@ void PF_IPS::printHelp() {
 		  "\t-reposition: Reposition ratio\n"
 		  "\t-movespeed : Move Speed in m/s\n"
 		  "\t-dt        : time interval in s\n"
+		  "\t-maxmethod : One of {mean,weighted,maxp}\n"
+		  "\t-attenuation : Attenuation constants Format: maxatt,attfactor\n"
 		  "\n"
 		  "\t-groundtruth : Ground truth CSV\n"
 		  "\t-gtorigin	  : Origin of the ground truth\n"
@@ -526,6 +586,7 @@ void PF_IPS::printHelp() {
 		  "\n"
 		  "\t-trajout   : Max-likelihood state output file\n"
 		  "\t-partout   : Particle state estimate and weights\n"
+		  "\t-frames	: Output frames for visualization\n"
 		  );
 
 	AbstractProgram::printHelp();
@@ -535,7 +596,7 @@ void PF_IPS::printHelp() {
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	
+	Visualization * viz;
 	// initialize random seed
 	srand (time(NULL));
 
@@ -547,14 +608,17 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 
 	if ( prog.visualize ) {
-		Visualization viz(&prog);
-		if ( !viz.start() ) {
+		viz = new Visualization(&prog);
+		if ( !viz->start() ) {
 			log_e("Error: Could not start visualization");
 			return -1;
 		}
 	}
 
 	prog.start();	
+
+	if (prog.visualize)
+		delete viz;
 	return error;
 }
 

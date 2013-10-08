@@ -57,16 +57,23 @@ private:
 	double minx,miny,maxx,maxy;
 	double cellwidth;
 	double movespeed;
+
+	double attmax,attdiff;
 	
 	int nParticles;
 	double reposition_ratio;
 	double time_interval;
+#define MAXMETHOD_MEAN 1
+#define MAXMETHOD_WEIGHTED 2
+#define MAXMETHOD_MAXP 3
+	char maxmethod;
 
 	bool simulate;
 
 	string rssiparam_fname, xyparam_fname, trajout_fname, partout_fname;
 	string mappng_fname, mapcache_fname, statein_fname, stateout_fname;
 	string groundtruth_fname;
+	string viz_frames_dir;
 
 	// data members
 	// Parameters
@@ -88,6 +95,7 @@ private:
 	double gt_ref_Y;
 
 	double TIME;
+	double T0;
 
 	// Sensor Data
 	vector<TimeSeries *> rssi_data;

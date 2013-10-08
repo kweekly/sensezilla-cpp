@@ -4,7 +4,7 @@
 #include "Visualization.h"
 
 
-
+/*
 #define COLOR_WHITE			0xff444444
 #define COLOR_OBSTACLE		0xff000000
 #define COLOR_PARTICLE		0xff00ff00
@@ -13,14 +13,37 @@
 #define COLOR_RSSISENSORS	0x00ffff00
 #define COLOR_GRIDLINES		0xff666666
 #define COLOR_AXIS			0xffaa6666
+*/
 
-#define RADIUS_GROUNDTRUTH  5
-#define RADIUS_ESTIMATE		5
-#define RADIUS_RSSISENSORS	3
+
+#define COLOR_WHITE			0xffffffff
+#define COLOR_OBSTACLE		0xffaaaaaa
+#define COLOR_PARTICLE		0xff000000
+#define COLOR_GROUNDTRUTH   0xff222222
+#define COLOR_ESTIMATE		0x00000000
+#define COLOR_RSSISENSORS	0x00333333
+#define COLOR_GRIDLINES		0xff666666
+#define COLOR_AXIS			0xffaa6666
+
+
+#define RADIUS_GROUNDTRUTH  10
+#define RADIUS_ESTIMATE		10
+#define RADIUS_RSSISENSORS	8
+#define PARTICLE_X_LEN	2
 
 Visualization::Visualization(PF_IPS * p) {
 	prog = p;
 	message = background = screen = nullptr;
+	minx = p->minx;
+	maxx = p->maxx;
+	miny = p->miny;
+	maxy = p->maxy;
+
+	minx = 0;
+	maxx = 20;
+	miny = -15;
+	maxy = 0;
+	
 }
 
 Visualization::~Visualization() {
@@ -51,12 +74,9 @@ void Visualization::_vis_thread_fn() {
 			return;
 		}
 		
-		scale_factor = 1.0;
-		while ( data.width * scale_factor > 1000 ) 
-			scale_factor /= 2.0;
-		
-		height = (int)(scale_factor * data.height);
-		width = (int)(scale_factor * data.width);
+
+		width = 800;
+		height = (int)(width * (maxy-miny)/(maxx-minx));
 
 		screen = SDL_SetVideoMode( width, height , 32, SDL_SWSURFACE );
 		if ( screen == nullptr ) {
@@ -67,13 +87,19 @@ void Visualization::_vis_thread_fn() {
 
 		SDL_WM_SetCaption("Particle Filter", NULL);
 
+		double ratx = (maxx-minx) / width;
+		double raty = (maxy-miny) / height;
+		double pngratx = (double)data.width / (prog->maxx - prog->minx);
+		double pngraty = (double)data.height / (prog->maxy - prog->miny);
 		// construct the background! PNGData -> background
 		for ( int x = 0; x < width; x++ ) {
 			for ( int y = 0; y < height; y++ ) {
-				int row = y / scale_factor;
-				int col = x / scale_factor;
+				double cx = x * ratx + minx;
+				double cy = y * raty + miny;
+				int col = (int)((cx - prog->minx) * pngratx);
+				int row = (int)((cy - prog->miny) * pngraty);
 				bool obs = false;
-				for ( int s = 0; s < 1/scale_factor; s++ ) {
+				for ( int s = 0; s < 1; s++ ) {
 					if (data.B[row+s][col+s] == data.R[row+s][col+s] && data.R[row+s][col+s] == data.G[row+s][col+s] && (data.R[row+s][col+s] < 0.95)) {
 						obs = true;
 						break;
@@ -106,7 +132,7 @@ void Visualization::_vis_thread_fn() {
 	while(running) {
 		_handle_events();
 		_render();
-		SDL_Delay(100);
+		SDL_Delay(1);
 	}
 	prog->data_locked_ack_mutex.unlock();
 }
@@ -122,8 +148,8 @@ void Visualization::_handle_events() {
 	}
 }
 
-#define PX(x) ( (int)(0.5+(x - prog->minx) * width / (prog->maxx - prog->minx)))
-#define PY(y) ( (int)(0.5+(y - prog->miny) * height / (prog->maxy - prog->miny)))
+#define PX(x) ( (int)(0.5+(x - minx) * width / (maxx - minx)))
+#define PY(y) ( (int)(0.5+(y - miny) * height / (maxy - miny)))
 
 #define IFINB if ( px >= 0 && py >= 0 && px < width-1 && py < height-1)
 #define IFINB2(px,py) if ( px >= 0 && py >= 0 && px < width-1 && py < height-1)
@@ -172,8 +198,10 @@ void Visualization::_render() {
 	for (size_t p = 0; p < filter->nParticles; p++ ) {
 		int px = PX(filter->pcache[s1][p].state.pos.x);
 		int py = PY(filter->pcache[s1][p].state.pos.y);
-		IFINB {
-			Draw_Pixel(screen, px,py, COLOR_PARTICLE);
+		IFINB2(px-PARTICLE_X_LEN,py-PARTICLE_X_LEN) IFINB2(px+PARTICLE_X_LEN,py+PARTICLE_X_LEN) {
+			//Draw_Pixel(screen, px,py, COLOR_PARTICLE);
+			Draw_Line(screen,px-PARTICLE_X_LEN,py-PARTICLE_X_LEN,px+PARTICLE_X_LEN,py+PARTICLE_X_LEN, COLOR_PARTICLE);
+			Draw_Line(screen,px+PARTICLE_X_LEN,py-PARTICLE_X_LEN,px-PARTICLE_X_LEN,py+PARTICLE_X_LEN, COLOR_PARTICLE);
 		}
 	}
 
@@ -191,13 +219,15 @@ void Visualization::_render() {
 	int px = PX(prog->current_best_state.pos.x);
 	int py = PY(prog->current_best_state.pos.y);
 	IFINB {
-		Draw_FillCircle(screen, px, py, RADIUS_ESTIMATE, COLOR_ESTIMATE);
+		//Draw_FillCircle(screen, px, py, RADIUS_ESTIMATE, COLOR_ESTIMATE);
+		Draw_FillRect(screen,px-RADIUS_ESTIMATE,py-RADIUS_ESTIMATE,2*RADIUS_ESTIMATE,2*RADIUS_ESTIMATE,COLOR_ESTIMATE);
 	}
 
 	int last_px = px;
 	int last_py = py;
 
 	// draw max estimate trajectory
+	/*
 	size_t parent = filter->pcache[s1][prog->current_best_state_index].parent;
 	
 	
@@ -219,7 +249,7 @@ void Visualization::_render() {
 		last_px = px;
 		last_py = py;
 	}
-	
+	*/
 
 	// draw sensors
 	if ( prog->rssiparam_fname.size() > 0 ) {
@@ -227,11 +257,23 @@ void Visualization::_render() {
 			xycoords pos = prog->sensors[s].pos;
 			int px = PX(pos.x);
 			int py = PY(pos.y);
-
+			int cx = (int)(RADIUS_RSSISENSORS * cos(M_PI / 6)+0.5);
+			int cy = (int)(RADIUS_RSSISENSORS * sin(M_PI / 6)+0.5);
 			IFINB {
-				Draw_FillCircle(screen, px,py, RADIUS_RSSISENSORS, COLOR_RSSISENSORS);
+				//Draw_FillCircle(screen, px,py, RADIUS_RSSISENSORS, COLOR_RSSISENSORS);
+				Draw_Line(screen,px,py-RADIUS_RSSISENSORS,px+cx,py+cy,COLOR_RSSISENSORS);
+				Draw_Line(screen,px,py-RADIUS_RSSISENSORS,px-cx,py+cy,COLOR_RSSISENSORS);
+				Draw_Line(screen,px-cx,py+cy,px+cx,py+cy,COLOR_RSSISENSORS);
 			}
 		}
+	}
+
+	if ( !(prog->viz_frames_dir.empty()) ) {
+		char buf[32];
+		sprintf(buf,"%05d.bmp",(int)(prog->TIME - prog->T0));
+		std::string cstr = (prog->viz_frames_dir + std::string(buf)).c_str() ;
+		int i = SDL_SaveBMP( screen,cstr.c_str() );
+		log_i("Saving to %s : %d",cstr.c_str(),i);
 	}
 
 	SDL_Flip( screen );

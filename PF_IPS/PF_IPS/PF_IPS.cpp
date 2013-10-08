@@ -8,7 +8,7 @@
 #include "PF_IPS.h"
 #include "SIRFilter.h"
 #include "Visualization.h"
-
+#include "windows.h"
 
 #include <thread>
 #include <random>
@@ -30,7 +30,7 @@ PF_IPS::PF_IPS() {
 	TIME = -1;
 	maxmethod = MAXMETHOD_WEIGHTED;
 
-	//viz_frames_dir.assign("../data/frames/");
+	viz_frames_dir.assign("../data/frames/");
 	// defaults
 	use_rssi = true; rssiparam_fname.assign("../data/test5/rssiparam.conf");
 	//use_rssi = true; rssiparam_fname.assign("../data/test/rssiparam.conf");
@@ -44,10 +44,10 @@ PF_IPS::PF_IPS() {
 	moverwrite = true;
 	cellwidth = 0.75;
 	gt_ref_X = 1.6;
-	attmax = 5.0;
-	attdiff = 1.0;
 	gt_ref_Y = 1.8;
-	reposition_ratio = 0.4; 
+	attmax = 3.0;
+	attdiff = 1.5;
+	reposition_ratio = 0.1; 
 	movespeed = 1.1;
 	groundtruth_fname.assign("../data/pos_5.txt");
 	//groundtruth_fname.assign("../data/ground_truth.txt");
@@ -598,7 +598,7 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	Visualization * viz;
 	// initialize random seed
-	srand (time(NULL));
+	srand (GetTickCount());
 
 	PF_IPS prog;
 	

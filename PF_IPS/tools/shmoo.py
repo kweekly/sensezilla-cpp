@@ -47,6 +47,9 @@ class ShmooVariable:
         
     def set(self, i):
         self.n = i;
+        
+    def get(self):
+        return self.n
 
 class Params:
     def __init__(self):
@@ -57,15 +60,15 @@ class Params:
         self.mapcache = "../data/mapcache.dat"
         self.moverwrite = "-moverwrite"
         self.particles = ShmooVariable("Particles",600)
-        self.reposition = ShmooVariable("Reposition",0.4)
+        self.reposition = ShmooVariable("Reposition",0.1)
         self.movespeed = ShmooVariable("Movespeed",1.1)
         self.groundtruth = GT_FILE
         self.gtorigin = "%.1f,%.1f"%(GT_ORIGIN_X,GT_ORIGIN_Y)
         self.visualize = "-novis"
         self.dt = ShmooVariable("dt",5.0);
         self.maxmethod = ShmooVariable("maxmethod","weighted");
-        self.attmax = ShmooVariable("attmax",5.0)
-        self.attdiff = ShmooVariable("attdiff",1.0)
+        self.attmax = ShmooVariable("attmax",3.0)
+        self.attdiff = ShmooVariable("attdiff",1.5)
         
         ## other params!
         self.nBins = ShmooVariable("nbins",5);
@@ -79,7 +82,7 @@ class Params:
         cargs= [EXE_PATH,"-rssiparam",self.rssiparam,
                          "-mappng",self.mappng,
                          "-mapbounds",self.mapbounds,
-                         "-cellwidth","%.1f"%self.cellwidth.asFloat(),
+                         "-cellwidth","%.2f"%self.cellwidth.asFloat(),
                          "-mapcache",self.mapcache,
                          self.moverwrite,
                          "-particles","%d"%self.particles.asInt(),
@@ -89,7 +92,7 @@ class Params:
                          "-gtorigin",self.gtorigin,
                          "-dt","%.2f"%self.dt.asFloat(),
                          "-maxmethod",self.maxmethod.asString(),
-                         "-attenuate","%.2f,%.2f"%(self.attmax.asFloat(),self.attdiff.asFloat()),
+                         "-attenuation","%.2f,%.2f"%(self.attmax.asFloat(),self.attdiff.asFloat()),
                          self.visualize,
                          "-trajout",self.trajout];
                          
@@ -194,7 +197,8 @@ def plot_vs_gt(params, sweepvar, results, gtdata):
     plt.ylabel('y coordinate')
     plt.xlabel('time')
     
-    for v in sorted(results.keys()):
+    vals = sorted(results.keys())
+    for v in vals:
         if isinstance(results[v],list):
             rv = results[v][-1]
         else:
@@ -205,6 +209,21 @@ def plot_vs_gt(params, sweepvar, results, gtdata):
     
     handles, labels = xaxis.get_legend_handles_labels()
     xaxis.legend(handles,labels);
+    
+    prefix = ""
+    if ( len(sys.argv) >= 2 ):
+        prefix = sys.argv[1]
+    
+    fname = prefix+"_trajs_"+sweepvar.name;
+    plt.savefig(fname+".png",dpi=600);
+    fout = open(fname+".csv",'w')
+    fout.write("#t,gt_x,gt_y,"+",".join(["%s_x,%s_y"%(v,v) for v in vals]) + "\n");
+    for tidx in range(gtdata.shape[0]):
+        fout.write("%.1f,%.2f,%.2f"%(gtdata[tidx,0],gtdata[tidx,1],gtdata[tidx,2]))
+        for v in vals:
+            fout.write(",%.5f,%.5f"%(results[v][-1][tidx,0],results[v][-1][tidx,1]));
+        fout.write("\n");
+    fout.close()
 
 def plot_errors(params, sweepvar, results, gtdata):
     plt.figure()
@@ -237,28 +256,33 @@ def plot_errors(params, sweepvar, results, gtdata):
         fout.write("%s,%.5f,%.5f,%.5f\n"%(str(vals[vidx]),RMSerr[vidx],MAXerr[vidx],MINerr[vidx]));
     fout.close()
 
+
     
 params = Params()
 
 def doit(svar,svals):
-    params = Params() 
+    v = svar.get()
     results = run_sweep(params, svar, svals);
     #plot_vs_gt(params, svar, results, gtdata);
     plot_errors(params,svar,results,gtdata);
+    svar.set(v)
     
 
 gtdata = read_gt(GT_FILE)
 
-doit(params.attmax,np.arange(0,11,1));
-doit(params.attdiff,np.arange(0,5,0.5));
-sys.exit(0);
-doit(params.particles,np.arange(100,1100,100));
-doit(params.reposition,np.arange(0,1.1,.1));
-doit(params.dt,np.arange(1,21,2));
-doit(params.movespeed,np.arange(0.8,2,0.1))
-doit(params.cellwidth,np.arange(0.25,2.25,0.25))
-doit(params.maxmethod,['maxp','mean','weighted'])
-doit(params.nBins,np.arange(1,21,1))
+if True:
+    doit(params.nBins,np.arange(1,11,1))
+    doit(params.attmax,np.arange(0,11,1));
+    doit(params.attdiff,np.arange(0,5,0.5));
+    doit(params.particles,np.arange(100,1100,100));
+    doit(params.reposition,np.arange(0,1.1,.1));
+    doit(params.dt,np.arange(1,21,2));
+    doit(params.movespeed,np.arange(0.8,2,0.1))
+    doit(params.cellwidth,np.arange(0.25,2.25,0.25))
+    doit(params.maxmethod,['maxp','mean','weighted'])
 
-
-plt.show();
+# single test
+NTESTS = 1;
+results = run_sweep(params,params.particles,[params.particles.get()])
+plot_vs_gt(params,params.particles,results,gtdata)
+plt.show()

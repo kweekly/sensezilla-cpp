@@ -277,6 +277,7 @@ if False:
     doit(params.particles,np.arange(100,1100,100));
     doit(params.reposition,np.arange(0,1.1,.1));
     doit(params.dt,np.arange(1,21,2));
+#if True:
     doit(params.movespeed,np.arange(0.8,2,0.1))
     doit(params.cellwidth,np.arange(0.25,2.25,0.25))
     doit(params.maxmethod,['maxp','mean','weighted'])

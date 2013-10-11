@@ -36,7 +36,7 @@ PF_IPS::PF_IPS() {
 	//use_rssi = true; rssiparam_fname.assign("../data/test/rssiparam.conf");
 	nParticles = 600;
 	time_interval = 5.0;
-	//use_trajout = true; trajout_fname.assign("../data/trajout_05.csv");
+	use_trajout = true; trajout_fname.assign("../data/trajout_05.csv");
 	use_partout = true; partout_fname.assign("../data/partout.csv");
 	use_mappng = true; mappng_fname.assign("../data/floorplan_new.png");
 	mappng_bounds_provided = true; minx = -16.011; maxx = 46.85; miny = -30.807; maxy = 15.954;
@@ -301,7 +301,7 @@ void PF_IPS::_loadRSSIData() {
 
 		default_random_engine rengine;
 		normal_distribution<double> stdnorm(0.0,1.0);
-
+		int TOTAL_POINTS = 0;
 		for ( int i = 0; i < allrssi.size(); i++ ) {
 			if ( simulate ) {
 				log_i("Simulating data for sensor %d",i);
@@ -356,6 +356,7 @@ void PF_IPS::_loadRSSIData() {
 				bool init = false;
 				for ( int j = 0; j < allrssi[i].size(); j++ ) {
 					if ( allrssi[i][j] == NULL || allrssi[i][j]->t.size() < 5 ) continue;
+					TOTAL_POINTS += allrssi[i][j]->t.size();
 					if ( !init ) {
 						rssi_data.push_back(allrssi[i][j]->interp(T));
 						init = true;
@@ -367,8 +368,10 @@ void PF_IPS::_loadRSSIData() {
 
 				*(rssi_data.back()) /= n;
 			}
+			
 		}
-
+		log_i("Loaded %d raw RSS measurements",TOTAL_POINTS);
+		
 error:
 		//cleanup
 		while (allrssi.size() > 0){

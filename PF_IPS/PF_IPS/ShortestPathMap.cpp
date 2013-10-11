@@ -231,7 +231,7 @@ ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<b
 	retval->pngfname = pngname;
 	retval->cellmovespeed = cellmovespeed;
 
-	clock_t TSTART = clock();
+	//clock_t TSTART = clock();
 
 	int nidx = grid.getRows() * grid.getColumns();
 
@@ -249,7 +249,7 @@ ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<b
 	}
 	retval->map.shrink_to_fit();
 
-	log_i("***Took %.3f seconds to run***",(double)(clock()-TSTART)/CLOCKS_PER_SEC);
+	//log_i("***Took %.3f seconds to run***",(double)(clock()-TSTART)/CLOCKS_PER_SEC);
 	return retval;
 }
 

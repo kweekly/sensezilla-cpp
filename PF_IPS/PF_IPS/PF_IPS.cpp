@@ -599,6 +599,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	Visualization * viz;
 	// initialize random seed
 	srand (GetTickCount());
+	//srand(999);
 
 	PF_IPS prog;
 	

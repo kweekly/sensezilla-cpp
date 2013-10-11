@@ -9,6 +9,9 @@ import glob
 from pfutils import *
 import re
 
+TICK = time.time();
+DATAPOINTS = 0;
+
 GUI = True
 if "-nogui" in sys.argv:
     GUI = False;
@@ -72,6 +75,7 @@ for s in sensors:
         dist = np.sqrt(np.square(dx) + np.square(dy))
         distances = np.append(distances,dist);
         measurements = np.append(measurements,subdat[:,1])
+        DATAPOINTS += dx.size
     
     rcells = [np.zeros((0,1)) for i in range(RBINS)]
     for mi in range(len(distances)):
@@ -91,7 +95,9 @@ for s in sensors:
             geval = gkde(X_ks)
             geval[geval < 1e-100] = 0;
             F_ks[:,bi] = geval
-            if GUI: subplt.plot(X_ks,F_ks[:,bi])
+            if GUI: 
+                subplt.plot(X_ks,F_ks[:,bi])
+                plt.title(s);
     
     print ""
     output = np.concatenate((X_ks.reshape(X_ks.size,1),F_ks),axis=1)
@@ -100,5 +106,8 @@ for s in sensors:
     
     sidx += 1
     
+print "Total datapoints: %d, Execution time: %.2f"%(DATAPOINTS, time.time() - TICK)
 if GUI:
     plt.show()
+    
+    

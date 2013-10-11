@@ -34,8 +34,8 @@ private:
 
 	class Particle {
 	public:
-		X_type state;
 		double prob;
+		X_type state;
 		#define NO_PARENT 0xFFFFFFFF
 		size_t parent;
 	};
@@ -196,7 +196,16 @@ SIRFN(void)::_worker_thread(int thread_no) {
 			thread_retvals[thread_no].maxp = start;
 			for (size_t p = start; p < end; p++) {
 				// prediction
-				transition_model(pcache[step1][p].state,params);
+				if ( repositioner != NULL && randDouble() < reposition_ratio ) {
+					State s = pcache[step1][p].state;
+					//repositioner(s,params);
+					randDouble();
+					randDouble();
+					randDouble();
+					transition_model(pcache[step1][p].state,params);
+				} else {
+					transition_model(pcache[step1][p].state,params);
+				}
 
 				// update importance weights
 				pcache[step1][p].prob = observation_model(pcache[step1][p].state, *current_measurement, params);
@@ -244,18 +253,11 @@ SIRFN(X_type)::step(const Y_type & measurement) {
 	step0 = step_no % pcache_time;
 	step1 = (step_no + 1) % pcache_time;
 
+
 	// Discrete re-sampling of particles, however we reserve some to be repositioned
-	size_t p = 0;
-	if ( repositioner != NULL ) {
-		for ( p = 0; p < (size_t)(reposition_ratio * nParticles); p++ ) {
-			pcache[step1][p].prob = 0;
-			repositioner(pcache[step1][p].state,params);
-		}
-	}
-	for (; p < nParticles; p++ ) {
-		do {
-			pcache[step1][p].prob = randDouble(); // create new list of random numbers from 0 to 1.0
-		} while (pcache[step1][p].prob == 0); // 0 has special meaning
+	
+	for (size_t p = 0; p < nParticles; p++ ) {
+		pcache[step1][p].prob = randDouble(); // create new list of random numbers from 0 to 1.0
 	}
 	
 	// sort step1 in order using worker threads
@@ -282,21 +284,17 @@ SIRFN(X_type)::step(const Y_type & measurement) {
 
 	// array of pcache[step1][p] now contains random numbers sorted ascending
 	size_t p1 = 0;
-	size_t p2 = 0;
 	// skip 0 probs
-	for ( p2 = 0; p2 < nParticles; p2++ ) {
-		if ( pcache[step1][p2].prob != 0) break;
-	}
 	double cumsum = 0;
-	for ( ; p2 < nParticles; p2++ ) {
+	for ( size_t p2 = 0; p2 < nParticles; p2++ ) {
 		while ( pcache[step1][p2].prob > cumsum && p1 < nParticles ) {
 			cumsum += pcache[step0][p1].prob;
 			p1++;
 		}
 		if ( p1 >= nParticles ) p1 = nParticles-1;
-		pcache[step1][p2].parent = p1;
-		pcache[step1][p2].state = pcache[step0][p1].state;
-		pcache[step1][p2].prob  = pcache[step0][p1].prob;
+		pcache[step1][p2].parent = p1-1;
+		pcache[step1][p2].state = pcache[step0][p1-1].state;
+		pcache[step1][p2].prob  = pcache[step0][p1-1].prob;
 	}
 
 	// Start worker threads on prediction and update steps, they will also calculate psums and maximum prob. particles

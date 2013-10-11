@@ -38,12 +38,12 @@ Visualization::Visualization(PF_IPS * p) {
 	maxx = p->maxx;
 	miny = p->miny;
 	maxy = p->maxy;
-
+	/*
 	minx = 0;
 	maxx = 20;
 	miny = -15;
 	maxy = 0;
-	
+	*/
 }
 
 Visualization::~Visualization() {

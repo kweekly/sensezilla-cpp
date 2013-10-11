@@ -1,4 +1,5 @@
 #include "all.h"
+#include <time.h>
 #include "ShortestPathMap.h"
 
 ShortestPathMap::ShortestPathMap(const Grid h) : grid(h)
@@ -230,6 +231,8 @@ ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<b
 	retval->pngfname = pngname;
 	retval->cellmovespeed = cellmovespeed;
 
+	clock_t TSTART = clock();
+
 	int nidx = grid.getRows() * grid.getColumns();
 
 	// calculate cache
@@ -245,6 +248,8 @@ ShortestPathMap * ShortestPathMap::generateFromObstacleMap(const vector<vector<b
 		retval->map.push_back(donevec);
 	}
 	retval->map.shrink_to_fit();
+
+	log_i("***Took %.3f seconds to run***",(double)(clock()-TSTART)/CLOCKS_PER_SEC);
 	return retval;
 }
 

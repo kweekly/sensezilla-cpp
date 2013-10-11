@@ -270,7 +270,7 @@ def doit(svar,svals):
 
 gtdata = read_gt(GT_FILE)
 
-if True:
+if False:
     doit(params.nBins,np.arange(1,11,1))
     doit(params.attmax,np.arange(0,11,1));
     doit(params.attdiff,np.arange(0,5,0.5));

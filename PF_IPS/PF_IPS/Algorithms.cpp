@@ -18,7 +18,7 @@ void PF_IPS::_sirFilter() {
 
 	Params p;
 	p.context = this;
-	filter = new SIRFilter<State,Observation,Params>(X0,PF_IPS::transition_model,PF_IPS::observation_model,p);
+	filter = new SIRFilter<State,Observation,Params>(X0,PF_IPS::transition_model,PF_IPS::observation_model,p,100,nThreads);
 	filter->set_reposition_ratio(reposition_ratio, repositioner);
 	Observation o;
 	time_t last_update, cur_time;
@@ -195,7 +195,8 @@ double PF_IPS::_evaluate_rcell_prob(RSSISensor * sensor, double distance, double
 		if ( sensor->rcell_calib_r[c] > distance ) {
 			for ( size_t d = 0; d < sensor->rcell_calib_x.size(); d++ ) {
 				if ( sensor->rcell_calib_x[d] > measurement ) {
-					if ( d == 0 ) return 0; 
+					if ( d == 0 ) 
+						return sensor->rcell_calib_f[c][0]; 
 					// interpolate
 					double xdist = measurement - sensor->rcell_calib_x[d-1];
 					double dx = sensor->rcell_calib_x[d] - sensor->rcell_calib_x[d-1];

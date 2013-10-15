@@ -75,6 +75,8 @@ private:
 	string groundtruth_fname;
 	string viz_frames_dir;
 
+	size_t nThreads;
+
 	// data members
 	// Parameters
 	map<string,map<string, ConfigurationValue>> xy_config;	

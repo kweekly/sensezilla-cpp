@@ -14,6 +14,30 @@ TimeSeries::TimeSeries() {
 	v.clear();
 }
 
+TimeSeries::TimeSeries(vector<double> time,vector<double> values){
+	t = time;
+	v = values;
+	metadata.clear();
+}
+
+TimeSeries::TimeSeries(vector<double> time,double value) {
+	t = time;
+	v.clear();
+	v.reserve(t.size());
+	for ( size_t c = 0; c < t.size(); c++ ) v.push_back(value);
+	metadata.clear();
+}
+
+TimeSeries::TimeSeries(double tstart, double tend, double interval, double value) {
+	t.clear(); t.reserve((int)((tend-tstart)/interval+0.9999));
+	v.clear(); v.reserve((int)((tend-tstart)/interval+0.9999));
+	for ( double d = tstart; d < tend; d += interval) {
+		t.push_back(d);
+		v.push_back(value);
+	}
+	metadata.clear();
+}
+
 void TimeSeries::insertPointAtEnd(double time, double value) {
 	t.push_back(time);
 	v.push_back(value);

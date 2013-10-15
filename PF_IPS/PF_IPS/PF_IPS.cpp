@@ -11,6 +11,7 @@
 #include "windows.h"
 
 #include <thread>
+#include <cmath>
 #include <random>
 
 int error = 0;
@@ -28,11 +29,12 @@ PF_IPS::PF_IPS() {
 	simulate = false;
 	visualize = true;
 	TIME = -1;
+	nThreads = 5;
 	maxmethod = MAXMETHOD_WEIGHTED;
 
 	viz_frames_dir.assign("../data/frames/");
 	// defaults
-	use_rssi = true; rssiparam_fname.assign("../data/test5/rssiparam.conf");
+	use_rssi = true; rssiparam_fname.assign("../data/4_onetag/rssiparam.conf");
 	//use_rssi = true; rssiparam_fname.assign("../data/test/rssiparam.conf");
 	nParticles = 600;
 	time_interval = 5.0;
@@ -48,7 +50,8 @@ PF_IPS::PF_IPS() {
 	attmax = 3.0;
 	attdiff = 1.5;
 	reposition_ratio = 0.1; 
-	movespeed = 1.1;
+	movespeed = 0.5;
+	nThreads = 1;
 	groundtruth_fname.assign("../data/pos_5.txt");
 	//groundtruth_fname.assign("../data/ground_truth.txt");
 	simulate = false;
@@ -182,6 +185,9 @@ gterror:
 		return true;
 	} else if ( opt == "novis") {
 		visualize = false;
+		return true;
+	} else if ( opt == "nthreads") {
+		nThreads = std::stoi(val);
 		return true;
 	}
 
@@ -366,7 +372,11 @@ void PF_IPS::_loadRSSIData() {
 					n++;
 				}
 
-				*(rssi_data.back()) /= n;
+				if ( n == 0 ) {
+					rssi_data.push_back(new TimeSeries(T,std::numeric_limits<double>::quiet_NaN()));
+				} else {
+					*(rssi_data.back()) /= n;
+				}
 			}
 			
 		}
@@ -586,6 +596,7 @@ void PF_IPS::printHelp() {
 		  "\t-gtorigin	  : Origin of the ground truth\n"
 		  "\t-simulate	  : Generate simulated measurements using groundtruth\n"
 		  "\t-novis       : Don't start visualizer\n"
+		  "\t-nthreads    : Number of execution threads\n"
 		  "\n"
 		  "\t-trajout   : Max-likelihood state output file\n"
 		  "\t-partout   : Particle state estimate and weights\n"

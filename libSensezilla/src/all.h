@@ -53,6 +53,6 @@ using namespace std;
 #include "detectors/TransitionDetector.h"
 
 // RAND_MAX = 0x7fff, i.e. 15-bits, so we can try to get another 30 bits
-#define randDouble() (rand()/((double)RAND_MAX))
+#define randDouble() ((((long)rand()<<15)|(rand()))/((double)0x3fffffffL))
 
 #endif /* ALL_H_ */

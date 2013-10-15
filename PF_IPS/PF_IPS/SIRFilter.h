@@ -6,7 +6,7 @@
 #include <mutex>
 
 
-#define NUM_PF_THREADS 12
+//#define num_threads 12
 #define SIRFN(X) template <class X_type,class Y_type,class P_type> X SIRFilter<X_type,Y_type,P_type>
 
 template <class X_type,class Y_type,class P_type>
@@ -16,7 +16,7 @@ public:
 				void (*tm)(X_type & state, P_type & params),
 				double (*om)(const X_type & in_state, const Y_type & measurement, P_type & params),
 				const P_type & parms,
-				size_t trajtime = 100	);
+				size_t trajtime = 100, size_t nthreads=12	);
 	~SIRFilter();
 
 	void set_reposition_ratio(double ratio, void (*repositioner)(X_type & state, P_type &params));
@@ -41,6 +41,7 @@ private:
 	};
 	static int particle_comp_fn(const void * p1, const void * p2);
 	
+	size_t num_threads;
 
 	size_t pcache_time;
 	size_t nParticles;
@@ -64,7 +65,7 @@ private:
 		int n;
 		int maxp;
 	};
-	ThreadReturn thread_retvals[NUM_PF_THREADS];
+	ThreadReturn * thread_retvals;
 
 	enum WorkStep {
 		QSORT, PREDUPDATE
@@ -72,13 +73,13 @@ private:
 
 	bool program_alive;
 
-	thread thread_pool[NUM_PF_THREADS];
+	thread * thread_pool;
 	void _worker_thread(int thread_no);
 	void _run_workers(WorkStep ws);
 	
-	mutex thread_waiting_mutex[NUM_PF_THREADS]; // master unlocks this to signal that step should start
-	mutex thread_waiting_ack_mutex[NUM_PF_THREADS]; // child locks this until it acknowleges the step start signal
-	mutex thread_working_mutex[NUM_PF_THREADS]; // child locks this to indicate that it is working
+	mutex * thread_waiting_mutex; // master unlocks this to signal that step should start
+	mutex * thread_waiting_ack_mutex; // child locks this until it acknowleges the step start signal
+	mutex * thread_working_mutex; // child locks this to indicate that it is working
 	
 	
 	const Y_type * current_measurement;
@@ -90,11 +91,18 @@ SIRFN( )::SIRFilter(const std::vector<X_type> X0,
 					void (*tm)(X_type & state, P_type & params),
 					double (*om)(const X_type & in_state, const Y_type & measurement, P_type & params),
 					const P_type & parms, 
-					size_t trajtime) {
+					size_t trajtime,size_t nThreads) {
 	params = parms;
 	transition_model = tm;
 	observation_model = om;
 	pcache_time = trajtime;
+	num_threads = nThreads;
+
+	thread_pool = new thread[num_threads];
+	thread_retvals = new ThreadReturn[num_threads];
+	thread_waiting_mutex = new mutex[num_threads];
+	thread_waiting_ack_mutex = new mutex[num_threads];
+	thread_working_mutex = new mutex[num_threads];
 
 	nParticles = X0.size();
 	pcache = new Particle*[pcache_time];
@@ -113,7 +121,7 @@ SIRFN( )::SIRFilter(const std::vector<X_type> X0,
 	}
 
 	program_alive = true;
-	for (size_t c = 0; c < NUM_PF_THREADS; c++ ) {
+	for (size_t c = 0; c < num_threads; c++ ) {
 		thread_waiting_mutex[c].lock();
 		thread_pool[c] = thread(&SIRFilter::_worker_thread, this, c);
 		std::this_thread::yield();
@@ -126,7 +134,7 @@ SIRFN( )::SIRFilter(const std::vector<X_type> X0,
 
 SIRFN()::~SIRFilter() {
 	program_alive = false;
-	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+	for ( size_t t = 0; t < num_threads; t++ ) {
 		thread_waiting_mutex[t].unlock();
 	}
 
@@ -137,9 +145,15 @@ SIRFN()::~SIRFilter() {
 	
 	delete [] pscratch;
 
-	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+	for ( size_t t = 0; t < num_threads; t++ ) {
 		thread_pool[t].join();
 	}
+
+	delete [] thread_pool;
+	delete [] thread_retvals;
+	delete [] thread_waiting_mutex;
+	delete [] thread_waiting_ack_mutex;
+	delete [] thread_working_mutex;
 }
 
 SIRFN(void)::set_reposition_ratio(double ratio, void (*repositioner)(X_type & state, P_type &params)) {
@@ -159,11 +173,11 @@ SIRFN(void)::_worker_thread(int thread_no) {
 	size_t start, end;
 	thread_working_mutex[thread_no].lock();
 
-	start = (int)(thread_no * ((double)nParticles / NUM_PF_THREADS));
-	if (thread_no == NUM_PF_THREADS-1)
+	start = (int)(thread_no * ((double)nParticles / num_threads));
+	if (thread_no == num_threads-1)
 		end = nParticles;
 	else
-		end = (int)((thread_no+1) * ((double)nParticles / NUM_PF_THREADS));
+		end = (int)((thread_no+1) * ((double)nParticles / num_threads));
 
 	log_i("Worker Thread %d started. Responsible for %d to %d (%d elements)", thread_no,start,end,(end-start));
 	
@@ -198,11 +212,11 @@ SIRFN(void)::_worker_thread(int thread_no) {
 				// prediction
 				if ( repositioner != NULL && randDouble() < reposition_ratio ) {
 					State s = pcache[step1][p].state;
-					//repositioner(s,params);
+					repositioner(s,params);
+					/*randDouble();
 					randDouble();
-					randDouble();
-					randDouble();
-					transition_model(pcache[step1][p].state,params);
+					randDouble();*/
+					//transition_model(pcache[step1][p].state,params);
 				} else {
 					transition_model(pcache[step1][p].state,params);
 				}
@@ -230,7 +244,7 @@ SIRFN(void)::_worker_thread(int thread_no) {
 
 SIRFN(void)::_run_workers(WorkStep ws){
 	work_step = ws;
-	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+	for ( size_t t = 0; t < num_threads; t++ ) {
 		thread_waiting_mutex[t].unlock();  // signal that child can continue
 		thread_waiting_ack_mutex[t].lock(); // child has acknowleged that it can continue
 		thread_waiting_mutex[t].lock(); // lock to prevent child from continuing next step
@@ -238,7 +252,7 @@ SIRFN(void)::_run_workers(WorkStep ws){
 	}
 	
 	// wait for threads to finish
-	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+	for ( size_t t = 0; t < num_threads; t++ ) {
 		thread_working_mutex[t].lock();
 		thread_working_mutex[t].unlock();
 	}
@@ -264,15 +278,15 @@ SIRFN(X_type)::step(const Y_type & measurement) {
 	_run_workers(QSORT);
 	// merge the subarrays
 	// array has been copied into temporary array by the worker thread
-	size_t ptrs[NUM_PF_THREADS];
-	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
-		ptrs[t] = (int)(t * ((double)nParticles / NUM_PF_THREADS));
+	size_t * ptrs = new size_t[num_threads];
+	for ( size_t t = 0; t < num_threads; t++ ) {
+		ptrs[t] = (int)(t * ((double)nParticles / num_threads));
 	}
 	for ( size_t p = 0; p < nParticles; p++ ) {
 		double minv = 9e99;
 		size_t mint = 0;
-		for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
-			size_t end = (int)((t+1) * ((double)nParticles / NUM_PF_THREADS));
+		for ( size_t t = 0; t < num_threads; t++ ) {
+			size_t end = (int)((t+1) * ((double)nParticles / num_threads));
 			if ( ptrs[t] < end && pscratch[ptrs[t]].prob < minv ) {
 				mint = t;
 				minv = pscratch[ptrs[t]].prob;
@@ -281,6 +295,7 @@ SIRFN(X_type)::step(const Y_type & measurement) {
 		pcache[step1][p] = pscratch[ptrs[mint]];
 		ptrs[mint]++;
 	}
+	delete [] ptrs;
 
 	// array of pcache[step1][p] now contains random numbers sorted ascending
 	size_t p1 = 0;
@@ -302,7 +317,7 @@ SIRFN(X_type)::step(const Y_type & measurement) {
 
 	// Normalize the importance weights
 	double psum = 0.0;
-	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+	for ( size_t t = 0; t < num_threads; t++ ) {
 		psum += thread_retvals[t].psum;
 	}
 	if (psum != 0.0) {
@@ -319,7 +334,7 @@ SIRFN(X_type)::step(const Y_type & measurement) {
 	
 	// find maximum prob particle
 	size_t maxidx = 0;
-	for ( size_t t = 0; t < NUM_PF_THREADS; t++ ) {
+	for ( size_t t = 0; t < num_threads; t++ ) {
 		if ( pcache[step1][thread_retvals[t].maxp].prob > pcache[step1][maxidx].prob ) {
 			maxidx = thread_retvals[t].maxp;
 		}

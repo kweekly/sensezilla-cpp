@@ -12,6 +12,9 @@ class TimeSeries {
 
 public :
 	TimeSeries();
+	TimeSeries(vector<double> time,vector<double> values);
+	TimeSeries(vector<double> time,double value);
+	TimeSeries(double tstart, double tend, double interval, double value);
 
 	void insertPointAtEnd(double time, double value);
 	double getPoint(double time);
